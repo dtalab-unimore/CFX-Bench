@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument('--test_case_sel_method', type=str, default='border',
                         choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
     parser.add_argument('--explainer_name', type=str, choices=[
-        'ar', 'dice', 'face', 'nice', 'nice-actionables', 'optbin', 'proce', 'crif',
+        'ar', 'dice', 'face', 'nice', 'nice-actionables', 'optbin', 'proce', 'bfcf',
         'ares'
     ])
     parser.add_argument('--tag', type=str, default='', help='Optional tag to append to the output directory name.')
@@ -50,7 +50,7 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42)
 
     # Explainer specific params
-    parser.add_argument('--crif-solver', type=str, default='opt', choices=['opt', 'exp'])
+    parser.add_argument('--bfcf-solver', type=str, default='opt', choices=['opt', 'exp'])
     parser.add_argument('--dice-solver', type=str, default='random', choices=['random', 'genetic', 'kdtree'])
     parser.add_argument('--mixed', action="store_true")
     args = parser.parse_args()
@@ -65,9 +65,9 @@ def conf_to_str(conf):
     test_case = conf['test_case_sel_method']
     seed = conf['seed']
 
-    if explainer == 'crif':
-        crif_solver = conf['crif_solver']
-        explainer = f'{explainer}/{crif_solver}'
+    if explainer == 'bfcf':
+        bfcf_solver = conf['bfcf_solver']
+        explainer = f'{explainer}/{bfcf_solver}'
     elif explainer == 'dice':
         dice_solver = conf['dice_solver']
         explainer = f'{explainer}/{dice_solver}'
@@ -327,10 +327,10 @@ def main():
     # update explainer specific params
     if args.explainer_name == 'dice':
         explainer_params['method'] = args.dice_solver
-    elif args.explainer_name == 'crif':
-        crif_solver = {'opt': 'optimal', 'exp': 'expert'}[args.crif_solver]
-        explainer_params['method'] = crif_solver
-        if crif_solver == 'expert':
+    elif args.explainer_name == 'bfcf':
+        bfcf_solver = {'opt': 'optimal', 'exp': 'expert'}[args.bfcf_solver]
+        explainer_params['method'] = bfcf_solver
+        if bfcf_solver == 'expert':
             explainer_params['efforts'] = dataset.get_feature_costs()
     elif args.explainer_name == 'proce':
         explainer_params['ae_dir'] = os.path.join('/'.join(output_dir.split('/')[:-1]) + '/AE')

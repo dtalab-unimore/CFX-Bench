@@ -85,7 +85,7 @@ def main():
     parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
     parser.add_argument('--explainer_name', type=str, default='nice', choices=[
         'ar', 'nice', 'nice-actionables', 'optbin', 'dice-random', 'dice-genetic', 'dice-kdtree', 'face', 'proce',
-        'crif-opt', 'crif-exp'
+        'bfcf-opt', 'bfcf-exp'
     ])
     parser.add_argument('--test_case_sel_method', type=str, default='border',
                         choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])

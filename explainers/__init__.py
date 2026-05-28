@@ -1,6 +1,6 @@
 import explainers.nice_actionables_explainer
 from explainers.ar_explainer import ARExplainer
-from explainers.crif_explainer import CRIFCounterfactualExplainer
+from explainers.bfcf_explainer import BruteForceCounterfactualExplainer
 from explainers.dice_explainer import DiceExplainer
 from explainers.face_explainer import FaceExplainer
 from explainers.global_explainers.ares_explainer import AresExplainer
@@ -23,8 +23,8 @@ def get_cf_explainer(expl_name, expl_params):
         return DiceExplainer(**expl_params)
     if expl_name == 'face':
         return FaceExplainer(**expl_params)
-    if expl_name == 'crif':
-        return CRIFCounterfactualExplainer(**expl_params)
+    if expl_name == 'bfcf':
+        return BruteForceCounterfactualExplainer(**expl_params)
     if expl_name == 'proce':
         return ProCEAEBinnedExplainer(**expl_params)
 
