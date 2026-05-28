@@ -1,0 +1,10 @@
+[
+  {
+    "cf": "Imagine you are in this scenario: 'You are a 21-year-old person who has an average grade of B. You work part-time for 20 hours per week.' Current outcome: Your university application was rejected. 'To have your application approved, you would need to make the following changes: Improve your average grade from B to A.' The rest of the values will remain constant. Please rate as 'low', 'medium' or 'high', how consistent is this explanation: ",
+    "label": "high"
+  },
+  {
+    "cf": "Imagine you are in this scenario: 'You are a 21-year-old person who has an average grade of B. You work part-time for 20 hours per week.' Current outcome: Your university application was rejected. 'To have your application approved, you would need to make the following changes: Increase your hours worked per week from 20 to 80.' The rest of the values will remain constant. Please rate as 'low', 'medium' or 'high', how feasible is this explanation: ",
+    "label": "low"
+  }
+]
