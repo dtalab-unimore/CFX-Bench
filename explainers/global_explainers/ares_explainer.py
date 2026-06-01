@@ -32,7 +32,6 @@ class AresExplainer(BaseExplainer):
             prepare_data_ares_globece(self.features, self.act_features, self.df_train, self.target, self.model, self.dataset_name))
         dataset = DatasetLoader(self.features, self.cat_features, self.cont_features, self.df_train,
                                 pd.concat([X_oh, self.df_train[self.target]], axis=1))
-        wrapper_model = ModelWrapper(self.model_ohe)
 
         # start timer to measure training efficiency
         start = time.perf_counter()
@@ -49,13 +48,16 @@ class AresExplainer(BaseExplainer):
         elif self.dataset_name == "lending":
             apriori_threshold = 0.01
             constraints = [30, 4, 4]
+        elif self.dataset_name == "lending-club-2-mt":
+            apriori_threshold = 0.1
+            constraints = [50, 3, 10]
         elif self.dataset_name == "compas":
             apriori_threshold = 0.04
             constraints = [15, 3, 6]
         elif self.dataset_name == "adult":
             apriori_threshold = 0.05
             constraints = [50, 4, 5]
-        self.ares = AReS(model=wrapper_model, dataset=dataset, X=dataset.data_oh, dropped_features=self.immutables,
+        self.ares = AReS(model=self.model_ohe, dataset=dataset, X=dataset.data_oh, dropped_features=self.immutables,
                     n_bins=n_bins, ordinal_features=[], normalise=False, constraints=constraints)
         self.ares.generate_itemsets(apriori_threshold=apriori_threshold, max_width=None, affected_subgroup=None, save_copy=True)
         self.ares.generate_groundset(max_width=None, RL_reduction=True, then_generation=None, save_copy=False)

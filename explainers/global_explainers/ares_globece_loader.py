@@ -2,7 +2,7 @@ import pandas as pd
 
 
 class DatasetLoader:
-    def __init__(self, features, categorical_features, continuous_features, data_orig, data_bin, name='dataset'):
+    def __init__(self, features, categorical_features, continuous_features, data_orig, data_bin, name='dataset', ohe_sep='_'):
         self.columns = {name: features}
         self.categorical_features = {name: categorical_features}
         self.continuous_features = {name: continuous_features}
@@ -17,7 +17,7 @@ class DatasetLoader:
             for y in self.data_bin.columns[:-1]:
                 if y.startswith(x):
                     data_oh.append(data_bin[y])
-                    feature_value = x + " = " + y.removeprefix(x + "_")
+                    feature_value = x + " = " + y.removeprefix(x + ohe_sep)
                     features.append(feature_value)
                     self.features_tree[x].append(feature_value)
         self.data_oh = pd.concat(data_oh, axis=1, ignore_index=True)

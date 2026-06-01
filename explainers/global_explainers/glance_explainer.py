@@ -1,15 +1,15 @@
-from explainers.global_explainers.cf_explainer import BaseExplainer
+from .cf_explainer import BaseExplainer
 from optbinning import Scorecard
-from GLANCE_main.src.glance.glance.glance import GLANCE
-from model_wrapper import ModelWrapper
-from utils_explainers import prepare_output
-from scorecard_one_hot import prepare_data_bin
+from .glance.glance.glance import GLANCE
+from .model_wrapper import ModelWrapper
+from .utils_explainers import prepare_output
+from .scorecard_one_hot import prepare_data_bin
 import pandas as pd
-from metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
+from .metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
                            LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
 import time
-from adapters import GlanceAdapter
-from utils_explainers import compute_bounds
+from .adapters import GlanceAdapter
+from .utils_explainers import compute_bounds
 from sklearn.preprocessing import OneHotEncoder
 
 NAME = "glance"
@@ -28,7 +28,8 @@ CLUSTER_ACTION_CHOICE_ALGO = "max-eff"
 
 
 class GlanceExplainer(BaseExplainer):
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target, dataset_name, **kwargs):
+    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+                 dataset_name, output_dir, **kwargs):
         self.model = model
         self.df_train = df_train
         self.features = features
@@ -37,9 +38,17 @@ class GlanceExplainer(BaseExplainer):
         self.act_features = act_features
         self.target = target
         self.dataset_name = dataset_name
+        self.output_dir = output_dir
+
+        # if self.dataset_name == 'german-credit-crif-mt':
+        #     self.df_train = self.df_train.rename(columns={'creditability': 'target'})
+        #     self.target = target
+        self.df_train = self.df_train.rename(columns={self.target: 'target'})
+        self.target = 'target'
 
         # prepare data
-        self.model_bin, X_bins, self.binning_process, y = prepare_data_bin(self.df_train, self.features, self.target, self.model)
+        # self.model_bin, X_bins, self.binning_process, y = prepare_data_bin(self.df_train, self.features, self.target, self.model)
+        self.model_bin, X_bins, self.binning_process, y = self.model, df_train[features].copy(), self.model.binning_process_, df_train[target].copy()
         self.cat_features = self.features
         self.cont_features = []
         # define model wrapper
@@ -65,18 +74,18 @@ class GlanceExplainer(BaseExplainer):
         end = time.perf_counter()
 
         # compute metrics
-        name = self.dataset_name + "_" + NAME
+        # name = self.dataset_name + "_" + NAME
         self.factuals = self.df_train[self.model.predict(self.df_train[self.features]) == 0]
         training_efficiency = end - start
         _, _ = compute_metrics_global(self.df_train, self.factuals, self.features, cat_features, num_features, self.target,
-                                      self.model, self._explain, self.binning_process, training_efficiency, name, write=True)
+                                      self.model, self._explain, self.binning_process, training_efficiency, self.output_dir, write=True)
 
         # compute metrics auc
         OHE = OneHotEncoder(sparse_output=False, drop=None).fit(X_bins)
         adapter = GlanceAdapter(self.clusters_res, self.chosen_actions, self.factuals[self.features].reset_index(drop=True),
                                 cat_features, self.num_features, OHE, self.binning_process)
-        _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
-                                        UPPER_LIMIT_RANGE_FOR_D, name, None, plot=True, write=True)
+        # _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
+        #                                 UPPER_LIMIT_RANGE_FOR_D, self.output_dir, None, plot=True, write=True)
 
     def _explain(self, test_item, n_cf=1):
         # unpack test item
@@ -89,24 +98,24 @@ class GlanceExplainer(BaseExplainer):
         # pick correct actions
         chosen_action = self.chosen_actions[factual_idx]
         cfs = record.to_frame().T
-        if chosen_action != -1:
+        if chosen_action != -1:  # todo: cosa significa? nessun controfattuale?
             cluster_res = self.clusters_res[list(self.clusters_res)[chosen_action]]
             # build counterfactual
             for col, value in cluster_res['action'].items():
                 if value != '-':
-                    if col in self.num_features:
-                        lb, ub = compute_bounds(value)
-                        if lb != '-inf' and ub != 'inf':
-                            value = (lb + ub) / 2
-                        elif lb == '-inf' and ub != 'inf':
-                            value = ub
-                        elif ub == 'inf' and lb != '-inf':
-                            value = lb
-                    else:
-                        if value.count("'") > 2:
-                            value = value.strip("[]").replace("\n", "").replace(",", "").split("' '")[0].strip("'")
-                        else:
-                            value = value.strip("[]'")
+                    # if col in self.num_features:
+                    #     lb, ub = compute_bounds(value)
+                    #     if lb != '-inf' and ub != 'inf':
+                    #         value = (lb + ub) / 2
+                    #     elif lb == '-inf' and ub != 'inf':
+                    #         value = ub
+                    #     elif ub == 'inf' and lb != '-inf':
+                    #         value = lb
+                    # else:
+                    #     if value.count("'") > 2:
+                    #         value = value.strip("[]").replace("\n", "").replace(",", "").split("' '")[0].strip("'")
+                    #     else:
+                    #         value = value.strip("[]'")
                     cfs[col] = value
 
         # prepare the output in the required format

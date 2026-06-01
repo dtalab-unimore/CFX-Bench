@@ -9,20 +9,19 @@ from copy import deepcopy
 
 import numpy as np
 import pandas as pd
-import torch
+import torch  # TODO: check if torch is necessary
 from catboost import CatBoostClassifier
 from optbinning import BinningProcess
-from scipy.special import logit
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score, r2_score
-from statsmodels.base.covtype import descriptions
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from aux_models import ClassifierForBinnedData, ClassifierForMixedDataV2, UniversalProbabilityRescaler
 from dataset import get_dataset
 from explainers import get_cf_explainer
 from test_case_generator import TestCaseGenerator
-from utils import get_binning_maps, OrdinalBinsEncoder
+from utils import get_binning_maps, OrdinalBinsEncoder, clean_numpy2_strings
 
 
 def parse_args():
@@ -43,7 +42,7 @@ def parse_args():
                         choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
     parser.add_argument('--explainer_name', type=str, choices=[
         'ar', 'dice', 'face', 'nice', 'nice-actionables', 'optbin', 'proce', 'bfcf',
-        'ares'
+        'ares', 'globe-ce', 'facegroup', 'glance', 'llm-global'
     ])
     parser.add_argument('--tag', type=str, default='', help='Optional tag to append to the output directory name.')
     parser.add_argument('--timestamp', action='store_true', help='Whether to append a timestamp to the output directory name. Ignored if --tag is provided.')
@@ -88,33 +87,6 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def _warp_classifier(clf, threshold_pos):
-    clf = deepcopy(clf)
-
-    _supported_classifiers = (ClassifierForBinnedData,)
-    if isinstance(clf, ClassifierForBinnedData):
-        _supported_estimators = (LogisticRegression,)
-        if isinstance(clf.estimator_, LogisticRegression):
-            clf.estimator_.intercept_ -= logit(threshold_pos)
-        else:
-            raise NotImplementedError(f"Unsupported estimator type for warping: {type(clf.estimator_)}")
-    else:
-        raise NotImplementedError(f"Unsupported classifier type for warping: {type(clf)}")
-    return clf
-
-
-def warp_classifier(clf, threshold_pos):
-    clf = deepcopy(clf)
-
-    _supported_classifiers = (LogisticRegression,)
-    if isinstance(clf, LogisticRegression):
-        clf.intercept_ -= logit(threshold_pos)
-    else:
-        # raise NotImplementedError(f"Unsupported classifier type for warping: {type(clf)}")
-        warnings.warn(f"Unsupported classifier type for warping: {type(clf)}. Returning original classifier.")
-    return clf
-
-
 def compute_stats(metrics: pd.DataFrame) -> pd.Series:
     is_counterfactual = metrics['num_cf_'] > 0
     perc_generated = round(sum(is_counterfactual) / len(is_counterfactual) * 100, 4)
@@ -147,6 +119,33 @@ def compute_stats(metrics: pd.DataFrame) -> pd.Series:
     return stats
 
 
+CATBOOST_INT_MONOTONICITY = {
+    'german-credit-crif-mt': {
+        'savings.account.and.bonds': 1,
+        'other.installment.plans': 1,
+        'age.in.years': 1,
+    },
+}
+
+import re
+
+
+def to_pascal_case(text):
+    if not text:
+        return text
+
+    if not '_' in text:
+        return text
+
+    # Capitalize the very first letter
+    text = text[0].upper() + text[1:]
+
+    # Find any underscore followed by a lowercase letter and capitalize the letter
+    text = re.sub(r'_([a-z])', lambda match: match.group(1).upper(), text)
+
+    return text
+
+
 def main():
     warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -162,9 +161,27 @@ def main():
     features = dataset.get_features()
     num_features, cat_features = dataset.get_num_features(), dataset.get_cat_features()
     act_features = dataset.get_act_features()
+    target = dataset.get_target()
     monotonic_features = dataset.get_monotonic_features()
+    feature_costs = dataset.get_feature_costs()
+    test_sample = dataset.get_test_sample()
+    binning_fit_params = dataset.get_binning_fit_params()
     threshold_pos = dataset.get_threshold_pos()
     threshold_pos = 0.5
+
+    # === Pascal Case ===
+    X_train.rename(columns=to_pascal_case, inplace=True)
+    X_test.rename(columns=to_pascal_case, inplace=True)
+    features = [to_pascal_case(f) for f in features]
+    num_features, cat_features = [to_pascal_case(f) for f in num_features], [to_pascal_case(f) for f in cat_features]
+    act_features = [to_pascal_case(f) for f in act_features]
+    monotonic_features = {to_pascal_case(f): v for f, v in monotonic_features.items()}
+    feature_costs = {to_pascal_case(f): v for f, v in feature_costs.items()}
+    binning_fit_params = {to_pascal_case(f): v for f, v in binning_fit_params.items()}
+    # ======
+
+    # if args.dataset == 'lending-club-2-mt':
+    #     X_train, _, y_train, _, = train_test_split(X_train, y_train, train_size=1000, stratify=y_train)
 
     output_dir = 'output'
     if args.timestamp or args.tag:
@@ -186,14 +203,17 @@ def main():
     if args.model_name == 'lr':
         estimator = LogisticRegression(solver="newton-cholesky", penalty=None)
     elif args.model_name == 'catboost':
-        estimator = CatBoostClassifier(random_seed=args.seed)
+        estimator = CatBoostClassifier(
+            random_seed=args.seed,
+            monotone_constraints=CATBOOST_INT_MONOTONICITY[args.dataset],
+        )
     else:
         raise NotImplementedError("Supported models: ['lr', 'catboost']")
 
     X_train_orig, X_test_orig = X_train.copy(), X_test.copy()
 
     if conf['mixed']:
-        # todo: is binning necessary at all?
+        """# todo: is binning necessary at all?
         # === Mixed version ===
         # act_features = list(set(act_features).union(set(num_features)))
         # monotonic_features = {}
@@ -218,7 +238,7 @@ def main():
         classifier = ClassifierForMixedDataV2(
             estimator, binning_process, dataset.get_cat_features(False), num_features, dataset.get_ord_features()
         ).fit(X_train, y_train)
-        # ===
+        # ==="""
     else:
         # === Fully binned version ===
         saved_models_dir = os.path.join('saved_models', conf['dataset'], conf['model_name'], f's{conf["seed"]}')
@@ -231,6 +251,7 @@ def main():
             binning_process = classifier.binning_process_
             X_train = binning_process.transform(X_train, metric='bins')
             X_test = binning_process.transform(X_test, metric='bins')
+            X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
             if monotonic_features:
                 resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
         else:
@@ -238,7 +259,6 @@ def main():
             # raise RuntimeError(f"No saved model found at {saved_model_path}. Please train the model first by running the script without this check.")
 
             # monotonic_features = {}
-            binning_fit_params = dataset.get_binning_fit_params()
             # for f in num_features:
             #     del binning_fit_params[f]['max_n_bins']
             binning_process = BinningProcess(
@@ -251,18 +271,20 @@ def main():
 
             X_train = binning_process.transform(X_train, metric='bins')
             X_test = binning_process.transform(X_test, metric='bins')
+            X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
 
             if monotonic_features:
                 resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
 
             transform_ = {
                 'lr': 'woe',
-                'catboost': None,
+                # 'catboost': None,
+                'catboost': 'id',
             }[args.model_name]
             estimator_fit_kwargs = {
                 'lr': None,
                 'catboost': {
-                    'cat_features': list(range(len(features))),
+                    # 'cat_features': list(range(len(features))),
                     'eval_set': (X_test, y_test),  # fixme
                 }
             }[args.model_name]
@@ -308,7 +330,7 @@ def main():
         y_test=y_test,
         y_pred=y_pred,
         y_pos_proba=y_proba[:, 1],
-        sample=dataset.test_sample
+        sample=test_sample
     )
 
     # Explainer
@@ -320,7 +342,7 @@ def main():
         'cat_features': cat_features,
         'num_features': num_features,
         'act_features': act_features,
-        'target': dataset.get_target(),
+        'target': target,
         'monotonic_features': monotonic_features,
     }
 
@@ -331,7 +353,7 @@ def main():
         bfcf_solver = {'opt': 'optimal', 'exp': 'expert'}[args.bfcf_solver]
         explainer_params['method'] = bfcf_solver
         if bfcf_solver == 'expert':
-            explainer_params['efforts'] = dataset.get_feature_costs()
+            explainer_params['efforts'] = feature_costs
     elif args.explainer_name == 'proce':
         explainer_params['ae_dir'] = os.path.join('/'.join(output_dir.split('/')[:-1]) + '/AE')
         explainer_params['random_state'] = args.seed
@@ -343,7 +365,7 @@ def main():
             'X_train': X_train_orig,  # original, non-binned data
         })
         explainer_params.pop('model')
-    elif args.explainer_name == 'ares':
+    elif args.explainer_name in ['ares', 'globe-ce', 'facegroup', 'glance', 'llm-global']:
         del explainer_params['X_train']
         del explainer_params['y_train']
         explainer_params['df_train'] = pd.concat([X_train, y_train], axis=1)
@@ -403,7 +425,7 @@ def main():
 
     print("Evaluating explanations... ", end='')
     _, bin_id_map = get_binning_maps(classifier.binning_process_)
-    feature_costs = np.array([dataset.get_feature_costs().get(f, 0) for f in features])
+    feature_costs = np.array([feature_costs.get(f, 0) for f in features])
     enc = None
     for expl_set, elapsed_time in tqdm(zip(list_expl, cf_times), total=len(list_expl)):
         metrics = evaluator.evaluate(

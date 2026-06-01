@@ -190,6 +190,11 @@ class Dataset:
     def get_feature_costs(self):
         return self.feature_costs
 
+    def get_test_sample(self):
+        if self.test_sample is None or self.test_sample <= 0:
+            return None
+        return self.test_sample
+
     def get_config(self):
         return {
             "features": self.features,

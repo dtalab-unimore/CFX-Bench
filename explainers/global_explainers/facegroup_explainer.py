@@ -1,15 +1,18 @@
-from explainers.global_explainers.cf_explainer import BaseExplainer
+import time
+
 from optbinning import Scorecard
 from sklearn.preprocessing import MinMaxScaler
-from FACEGroup.src.FACEGroup import FACEGroup
-from FACEGroup.src.utils import GraphBuilder, get_subgraphs_by_group, get_normalized_group_identifier_value, get_false_negatives_by_group
-from FACEGroup.src.kernel import Kernel
-from FACEGroup.src.Feasibility import feasibility_consts
-from metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
-                           LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
-from utils_explainers import prepare_output, analyze_results, prepare_data_face
-import time
-from adapters import FaceGroupAdapter
+
+from .FACEGroup.FACEGroup import FACEGroup
+from .FACEGroup.Feasibility import feasibility_consts
+from .FACEGroup.kernel import Kernel
+from .FACEGroup.utils import GraphBuilder, get_subgraphs_by_group, get_normalized_group_identifier_value, \
+    get_false_negatives_by_group
+from .adapters import FaceGroupAdapter
+from .cf_explainer import BaseExplainer
+from .metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
+                            LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
+from .utils_explainers import prepare_output, analyze_results, prepare_data_face
 
 NAME = "facegroup"
 # EPSILON = 3.1
@@ -31,13 +34,17 @@ CFE_SELECTION_METHOD = "greedy"
 # ALG = "MIP"
 ALG = "BINARY SEARCH"
 GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex_['female : divorced/separated/married']"
+# GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex§['female : divorced/separated/married']"
 GROUP_IDENTIFIER_LENDING = "home_ownership_['MORTGAGE']"
 GROUP_IDENTIFIER_COMPAS = "sex_['Female']"
 GROUP_IDENTIFIER_ADULT = "sex_[' Female']"
+GROUP_IDENTIFIER_GERMAN_CREDIT_CRIF = "foreign.worker_['yes']"
+# GROUP_IDENTIFIER_GERMAN_CREDIT_CRIF = "foreign.worker§['yes']"
 
 
 class FaceGroupExplainer(BaseExplainer):
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target, dataset_name, **kwargs):
+    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+                 dataset_name, output_dir, **kwargs):
         self.model = model
         self.df_train = df_train
         self.features = features
@@ -46,6 +53,9 @@ class FaceGroupExplainer(BaseExplainer):
         self.act_features = act_features
         self.target = target
         self.dataset_name = dataset_name
+        self.output_dir = output_dir
+
+        self.df_train = self.df_train.reset_index(drop=True)
 
         # prepare data
         self.ohe, self.model_ohe, X_oh, self.binning_process, y, self.face_features, self.immutables, self.immutables_idx = (
@@ -87,6 +97,8 @@ class FaceGroupExplainer(BaseExplainer):
             group_identifier = GROUP_IDENTIFIER_COMPAS
         elif self.dataset_name == "adult":
             group_identifier = GROUP_IDENTIFIER_ADULT
+        elif self.dataset_name == "german-credit-crif-mt":
+            group_identifier = GROUP_IDENTIFIER_GERMAN_CREDIT_CRIF
         group_identifier_value_normalized = get_normalized_group_identifier_value(group_identifier=group_identifier,
             group_identifier_value=1, min_max_scaler=self.scaler, data_df_copy=X_oh[self.face_features])
 
@@ -122,17 +134,17 @@ class FaceGroupExplainer(BaseExplainer):
         self.dict = analyze_results(self.results, self.facegroup, self.graph, self.feasibility_constraints_instance)
 
         # compute metrics
-        name = self.dataset_name + "_" + NAME
+        # name = self.dataset_name + "_" + NAME
         factuals = self.df_train[self.model.predict(self.df_train[self.features]) == 0]
         training_efficiency = end - start
         _, _ = compute_metrics_global(self.df_train, factuals, self.features, cat_features, num_features, self.target,
-                                      self.model, self._explain, self.binning_process, training_efficiency, name, write=True)
+                                      self.model, self._explain, self.binning_process, training_efficiency, self.output_dir, write=True)
 
         # compute metrics auc
         adapter = FaceGroupAdapter(self.facegroup, subgroups, candidate_counterfactuals, factuals_oh, COST_FUNCTION,
                                    self.distances, K_SELECTION_METHOD, CFE_SELECTION_METHOD,  factuals_by_group, ALG)
-        _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
-                                        UPPER_LIMIT_RANGE_FOR_D, name, self.distances, plot=True, write=True)
+        # _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
+        #                                 UPPER_LIMIT_RANGE_FOR_D, self.output_dir, self.distances, plot=True, write=True)
 
     def _explain(self, test_item, n_cf=1):
         # unpack test item

@@ -4,7 +4,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 from aux_models import OneHotDataClassifierAdapter
 from explainers.base import BaseExplainer, prepare_output
-from explainers.face import CFGenerator
+from explainers.FACE import CFGenerator
 
 
 class FaceExplainer(BaseExplainer):
@@ -46,48 +46,78 @@ class FaceExplainer(BaseExplainer):
         }
         self.cat_feature_idx = {feat: i for i, feat in enumerate(self.cat_features)}
 
-        # to enforce constraints
-        def edge_conditions(v0, v1):
+        # ------------------------------------------------------------------
+        # Pre-compute everything needed to evaluate edge conditions in a fully
+        # vectorized way, exploiting the one-hot structure of the binned data.
+        #
+        #  * Immutable check: the one-hot sub-vectors must be identical.
+        #  * Monotonic check: the ordinal rank of a feature is simply the
+        #    position of its "hot" column inside that feature's one-hot block.
+        #    We therefore never need OneHotEncoder.inverse_transform at edge
+        #    evaluation time -- we precompute, per monotonic feature, the column
+        #    indices of its block (in encoder.categories_ order) and a lookup
+        #    array mapping each in-block position to its monotonic rank.
+        # ------------------------------------------------------------------
+        self.immutables_idx_arr = np.asarray(self.immutables_idx, dtype=int)
+
+        self.monotonic_blocks = []
+        for feature in self.monotonic_features:
+            cidx = self.cat_feature_idx[feature]
+            # block columns appear in get_feature_names_out order == categories_ order
+            block_cols = np.array(
+                [i for i, c in enumerate(self.face_features)
+                 if c.startswith(feature + ohe_sep)],
+                dtype=int,
+            )
+            rank_lookup = np.array(
+                [self.category_rank[feature][cat]
+                 for cat in self.encoder.categories_[cidx]],
+                dtype=int,
+            )
+            self.monotonic_blocks.append((block_cols, rank_lookup))
+
+        # to enforce constraints (vectorized)
+        def edge_conditions(V0, V1):
             """
             Parameters
             ----------
-            v0 : original instance
-            v1 : counterfactual instance
+            V0 : np.ndarray of shape (M, n_features)
+                Batch of original instances (M may be 1 for a single record).
+            V1 : np.ndarray of shape (M, n_features)
+                Batch of counterfactual instances. Edges are directional:
+                V0[m] -> V1[m].
 
             Returns
             -------
-
+            np.ndarray of shape (M,), dtype bool
+                Mask of pairs that satisfy the immutability and monotonicity
+                constraints.
             """
+            ok = np.ones(V0.shape[0], dtype=bool)
 
-            v0, v1 = v0.flatten(), v1.flatten()  # input vectors of shape (n_features, 1), convert to shape (n_features,)
+            # 1. Immutable features: one-hot sub-vectors must match exactly
+            if self.immutables_idx_arr.size:
+                ok &= np.all(
+                    V0[:, self.immutables_idx_arr] == V1[:, self.immutables_idx_arr],
+                    axis=1,
+                )
 
-            # 1. Fast immutable feature check
-            if self.immutables_idx:
-                if not np.array_equal(v0[self.immutables_idx],v1[self.immutables_idx]):
-                    return False
+            # 2. Monotonic features: rank(V0) must not exceed rank(V1)
+            for block_cols, rank_lookup in self.monotonic_blocks:
+                r0 = rank_lookup[np.argmax(V0[:, block_cols], axis=1)]
+                r1 = rank_lookup[np.argmax(V1[:, block_cols], axis=1)]
+                ok &= (r0 <= r1)
 
-            # 2. Fast monotonic constraint check using native inverse_transform
-            if self.monotonic_features:
-                bins = self.encoder.inverse_transform([v0, v1])
-                row0, row1 = bins[0], bins[1]
-
-                # 3. Fast monotonic constraint check
-                for feature in self.monotonic_features:
-                    idx = self.cat_feature_idx[feature]
-                    val0 = row0[idx]
-                    val1 = row1[idx]
-                    if self.category_rank[feature][val0] > self.category_rank[feature][val1]:
-                        return False
-
-            return True
+            return ok
 
         self.cf = CFGenerator(
             predictor=self.model_ohe,
             method='kde',
+            # kde_mode=2,  # use sigmoid instead of -log to avoid negative edges
             # method='knn',
             edge_conditions=edge_conditions,
             undirected=False,
-            distance_threshold=np.log2(len(self.features)),  # rule of thumb
+            distance_threshold=np.sqrt(2)+0.1,
         )
         self.cf.fit(df_face[self.face_features].to_numpy(), self.y_train.to_numpy())
 
@@ -118,22 +148,6 @@ class FaceExplainer(BaseExplainer):
         cfs = pd.DataFrame(cfs_raw, columns=self.cat_features)
         list_new_probs = self.model.predict_proba(cfs)[:, 1]
 
-        """list_expl_full = cfs.reset_index(drop=True)
-        list_expl_changes = []
-        for _, cf in cfs.iterrows():
-            changes = []
-            for col in cfs.columns:
-                if cf[col] != record[col]:
-                    changes.append(cf[col])
-                else:
-                    changes.append("-")
-            list_expl_changes.append(changes)
-        list_expl_changes = pd.DataFrame(list_expl_changes, columns=cfs.columns)
-        return {
-            "record": record, "label": label, "pred": pred, "proba": proba, "target": target, 
-            "list_expl_full": list_expl_full,
-            "list_expl_changes": list_expl_changes, "list_new_probs": pd.Series(list_new_probs),
-        }"""
         expl_dict = prepare_output(*test_item, cfs, list_new_probs)
         return expl_dict
 

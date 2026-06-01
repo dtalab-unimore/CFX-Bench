@@ -1,17 +1,19 @@
-from explainers.global_explainers.cf_explainer import BaseExplainer
-from optbinning import Scorecard
-from model_wrapper import ModelWrapper
-from GLOBE_CE_main.globe_ce import GLOBE_CE
-from GLOBE_CE_main.ares import AReS
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
-from utils_explainers import prepare_data_ares_globece, prepare_output
 import pandas as pd
-from ares_globece_loader import DatasetLoader
-from metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
-                           LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
-import time
-from adapters import GlobeCeAdapter
+from optbinning import Scorecard
+
+from .GLOBE_CE_main.ares import AReS
+from .GLOBE_CE_main.globe_ce import GLOBE_CE
+from .adapters import GlobeCeAdapter
+from .ares_globece_loader import DatasetLoader
+from .cf_explainer import BaseExplainer
+from .metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
+                            LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
+from .model_wrapper import ModelWrapper
+from .utils_explainers import prepare_data_ares_globece, prepare_output
 
 NAME = "globe-ce"
 SCHEME = "random"
@@ -19,7 +21,8 @@ SCHEME = "random"
 
 
 class GlobeCeExplainer(BaseExplainer):
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target, dataset_name, **kwargs):
+    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+                 dataset_name, output_dir, **kwargs):
         self.model = model
         self.df_train = df_train
         self.features = features
@@ -28,16 +31,17 @@ class GlobeCeExplainer(BaseExplainer):
         self.act_features = act_features
         self.target = target
         self.dataset_name = dataset_name
+        self.output_dir = output_dir
 
         # prepare data
         self.cat_features, _, self.immutables, self.ohe, self.model_ohe, X_oh, self.binning_process, _, n_bins = (
             prepare_data_ares_globece(self.features, self.act_features, self.df_train, self.target, self.model, self.dataset_name))
         dataset = DatasetLoader(self.features, self.cat_features, [], self.df_train,
                                 pd.concat([X_oh, self.df_train[self.target]], axis=1))
-        self.wrapper_model = ModelWrapper(self.model_ohe)
+        # self.wrapper_model = ModelWrapper(self.model_ohe)
 
         # initialise AReS to determine bin widths for costs
-        ares = AReS(model=self.wrapper_model, dataset=dataset, X=dataset.data_oh, n_bins=n_bins,
+        ares = AReS(model=self.model_ohe, dataset=dataset, X=dataset.data_oh, n_bins=n_bins,
                     dropped_features=self.immutables, normalise=False)
         bin_widths = ares.bin_widths
 
@@ -45,7 +49,7 @@ class GlobeCeExplainer(BaseExplainer):
         start = time.perf_counter()
 
         # initialise Globe-CE
-        self.globe_ce = GLOBE_CE(model=self.wrapper_model, dataset=dataset, X=dataset.data_oh, affected_subgroup=None,
+        self.globe_ce = GLOBE_CE(model=self.model_ohe, dataset=dataset, X=dataset.data_oh, affected_subgroup=None,
                             dropped_features=self.immutables, ordinal_features=[], delta_init='zeros',
                             normalise=None, bin_widths=bin_widths, monotonicity=None, p=1)
         self.immutables_oh = np.array(self.globe_ce.feature_values)[self.globe_ce.active_idx == False].tolist()
@@ -90,13 +94,13 @@ class GlobeCeExplainer(BaseExplainer):
         self.factuals = self.df_train[self.model.predict(self.df_train[self.features]) == 0]
         training_efficiency = end - start
         _, _ = compute_metrics_global(self.df_train, self.factuals, self.features, cat_features, num_features, self.target,
-                                      self.model, self._explain, self.binning_process, training_efficiency, name, write=True)
+                                      self.model, self._explain, self.binning_process, training_efficiency, self.output_dir, write=True)
 
         # compute metrics auc
         adapter = GlobeCeAdapter(self.globe_ce, self.factuals[self.features].reset_index(drop=True), self.k_s,
                                  self.min_costs_idxs, self.binning_process, self.ohe)
         _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
-                                        UPPER_LIMIT_RANGE_FOR_D, name, None, plot=True, write=True)
+                                        UPPER_LIMIT_RANGE_FOR_D, self.output_dir, None, plot=True, write=True)
 
     def _explain(self, test_item, n_cf=1):
         # unpack test item
@@ -125,9 +129,11 @@ class GlobeCeExplainer(BaseExplainer):
             lambda_coef = k_s[int(scalar_idx)]
             # construct CF
             cfs = (self.globe_ce.x_aff[factual_idx] + (lambda_coef * delta)).reshape(1, -1)
-            cfs = pd.DataFrame(cfs, columns=self.ohe.get_feature_names_out())
-            cfs = self.wrapper_model.decode(cfs, self.features, self.ohe.get_feature_names_out(),
-                                            self.num_features, self.binning_process)
+            # cfs = pd.DataFrame(cfs, columns=self.ohe.get_feature_names_out())
+            # cfs = self.wrapper_model.decode(cfs, self.features, self.ohe.get_feature_names_out(),
+            #                                 self.num_features, self.binning_process)
+            cfs = self.ohe.inverse_transform(cfs)
+            cfs = pd.DataFrame(cfs, columns=self.features)
 
         # prepare the output in the required format
         return prepare_output(self.model, cfs[self.features], test_item)

@@ -53,6 +53,24 @@ class ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
         self.estimator_fit_kwargs_ = estimator_fit_kwargs or {}
         self.is_fitted_ = False
 
+    @staticmethod
+    def _replace_via_map(X, mapping):
+        out = {}
+        for col in X.columns:
+            s = X[col]
+            d = mapping.get(col)
+            if d is None:
+                out[col] = s.copy()
+                continue
+            mapped = s.map(d)
+            # .map sends unmapped values to NaN; .replace leaves them unchanged
+            miss = mapped.isna() & s.notna()
+            if miss.any():
+                mapped = mapped.astype(object)
+                mapped[miss] = s[miss]
+            out[col] = mapped
+        return pd.DataFrame(out, index=X.index)
+
     def transform(self, X, transform_type=None):
         X = X.copy()
         if transform_type is None: transform_type = self.transform_type
@@ -60,8 +78,10 @@ class ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
             X = pd.DataFrame(X, columns=self.feature_names_in_)
         if transform_type == 'woe':
             return X.replace(self.woe_map_)
+            # return self._replace_via_map(X, self.woe_map_)
         elif transform_type == 'id':
             return X.replace(self.ids_map_)
+            # return self._replace_via_map(X, self.ids_map_)
         return X
 
     def fit(self, X: pd.DataFrame, y):
@@ -70,6 +90,12 @@ class ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
         self.woe_map_, self.ids_map_ = get_binning_maps(self.binning_process)
         if self.transform_type in ['woe', 'id']:
             X = self.transform(X)
+
+        if 'catboost' in str(type(self.estimator)).lower():
+            if 'eval_set' in self.estimator_fit_kwargs_:
+                X_val, y_val = self.estimator_fit_kwargs_['eval_set']
+                X_val = self.transform(X_val)
+                self.estimator_fit_kwargs_['eval_set'] = (X_val, y_val)
 
         self.estimator.fit(X, y, **self.estimator_fit_kwargs_)
         self.binning_process_ = self.binning_process
@@ -211,6 +237,9 @@ class OneHotDataClassifierAdapter(ClassifierMixin, BaseEstimator):
         categories = np.broadcast_to(self.categories_, X.shape)
         X_bins = categories[X > 0.5].reshape(X.shape[0], -1)
         return self.model.predict_proba(X_bins)
+
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
 
 
 class UniversalProbabilityRescaler(BaseEstimator, ClassifierMixin):

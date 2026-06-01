@@ -1,5 +1,3 @@
-from llm_clients.gpt_client import GPTClient
-from llm_clients.hf_client import HuggingFaceClient
 from llm_clients.utils import get_model_source
 
 
@@ -7,6 +5,7 @@ def get_llm(model_name, token=None, seed: int = 42, **kwargs):
     model_source = get_model_source(model_name)
 
     if model_source == 'gpt':
+        from llm_clients.gpt_client import GPTClient
         llm = GPTClient(
             model_name=model_name,
             token=token,
@@ -14,6 +13,7 @@ def get_llm(model_name, token=None, seed: int = 42, **kwargs):
             **kwargs
         )
     elif model_source == 'hf':
+        from llm_clients.hf_client import HuggingFaceClient
         llm = HuggingFaceClient(
             model_name=model_name,
             token=token,

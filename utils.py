@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pandas as pd
 from optbinning import BinningProcess
@@ -5,6 +7,19 @@ from optbinning.binning.binning_statistics import bin_str_format
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OrdinalEncoder, FunctionTransformer, QuantileTransformer, OneHotEncoder
 from sklearn.utils.validation import check_is_fitted
+
+
+from typing import TypeVar
+T = TypeVar('T', str, list, pd.Series, pd.DataFrame)
+def clean_numpy2_strings(X: T) -> T:
+    to_replace_regex = r"np\.str_\((['\"].*?['\"])\)"
+    if isinstance(X, str):
+        return re.sub(to_replace_regex, r"\1", X)
+    if isinstance(X, list):
+        return [re.sub(to_replace_regex, r"\1", x) for x in X]
+    if isinstance(X, pd.Series) or isinstance(X, pd.DataFrame):
+        return X.replace(to_replace_regex, r"\1", regex=True)
+    raise TypeError(f"Unsupported type: {type(X)}")
 
 
 class MidpointECDFTransformer(BaseEstimator, TransformerMixin):
@@ -94,7 +109,9 @@ def OrdinalBinsEncoder(features, monotonic_features, binning_process: BinningPro
             if dtype == 'numerical':
                 splits = bin_str_format(np.concatenate([[-np.inf], splits, [np.inf]]), 2)
             else:  # categorical
-                splits = [str(split_) for split_ in splits]
+                # splits = [str(split_) for split_ in splits]
+                splits = [clean_numpy2_strings(str(split_)) for split_ in splits]
+                # splits = [str([x if type(x)==str else x.item() for x in split_]) for split_ in splits]  # Numpy 2
             categories.append(splits)
     ordenc = OrdinalEncoder(categories=categories)
     return ordenc
