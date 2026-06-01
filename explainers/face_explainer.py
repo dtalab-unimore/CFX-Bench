@@ -15,19 +15,18 @@ class FaceExplainer(BaseExplainer):
 
         # encode categoric features (one-hot-encoding)
         ohe_sep = '§'  # use a separator that is not likely to appear in feature names or category names
-        self.encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore", drop=None,
-                                     feature_name_combiner=lambda a, b: f"{a}{ohe_sep}{b}")
-        self.encoder.fit(self.X_train[self.cat_features])
-        self.ohe_cat_columns = list(self.encoder.get_feature_names_out(self.cat_features))
-        self.face_features = self.num_features + self.ohe_cat_columns
+        self.OHE = OneHotEncoder(sparse_output=False, handle_unknown="ignore", drop=None,
+                                 feature_name_combiner=lambda a, b: f"{a}{ohe_sep}{b}")
+        self.OHE.fit(self.X_train)
+        self.face_features = list(self.OHE.get_feature_names_out())
 
-        df_face = self.scale_encode(self.X_train, self.encoder)
+        X_train_oh = self._transform(self.X_train, self.OHE)
 
         # compute names of immutable features columns
-        raw_cat_immutables = [f for f in self.cat_features if f not in self.act_features]
+        raw_immutables = [f for f in self.features if f not in self.act_features]
         ohe_immutables = []
-        for raw_feat in raw_cat_immutables:
-            cols = [c for c in self.ohe_cat_columns if c.startswith(raw_feat + ohe_sep)]
+        for raw_feat in raw_immutables:
+            cols = [c for c in self.face_features if c.startswith(raw_feat + ohe_sep)]
             ohe_immutables.extend(cols)
         self.immutables_idx = [self.face_features.index(f) for f in ohe_immutables]
 
@@ -37,14 +36,14 @@ class FaceExplainer(BaseExplainer):
             ohe_feature_names=self.face_features,
             ohe_separator=ohe_sep,
         )
-        self.model_ohe.fit(df_face[self.face_features])
+        self.model_ohe.fit(X_train_oh)
 
         # pre-compute ranks for fast monotonicity checks
         self.category_rank = {
             feature: {cat: i for i, cat in enumerate(categories)}
             for feature, categories in self.monotonic_features.items()
         }
-        self.cat_feature_idx = {feat: i for i, feat in enumerate(self.cat_features)}
+        self.cat_feature_idx = {feat: i for i, feat in enumerate(self.features)}
 
         # ------------------------------------------------------------------
         # Pre-compute everything needed to evaluate edge conditions in a fully
@@ -55,7 +54,7 @@ class FaceExplainer(BaseExplainer):
         #    position of its "hot" column inside that feature's one-hot block.
         #    We therefore never need OneHotEncoder.inverse_transform at edge
         #    evaluation time -- we precompute, per monotonic feature, the column
-        #    indices of its block (in encoder.categories_ order) and a lookup
+        #    indices of its block (in OHE.categories_ order) and a lookup
         #    array mapping each in-block position to its monotonic rank.
         # ------------------------------------------------------------------
         self.immutables_idx_arr = np.asarray(self.immutables_idx, dtype=int)
@@ -71,7 +70,7 @@ class FaceExplainer(BaseExplainer):
             )
             rank_lookup = np.array(
                 [self.category_rank[feature][cat]
-                 for cat in self.encoder.categories_[cidx]],
+                 for cat in self.OHE.categories_[cidx]],
                 dtype=int,
             )
             self.monotonic_blocks.append((block_cols, rank_lookup))
@@ -119,12 +118,12 @@ class FaceExplainer(BaseExplainer):
             undirected=False,
             distance_threshold=np.sqrt(2)+0.1,
         )
-        self.cf.fit(df_face[self.face_features].to_numpy(), self.y_train.to_numpy())
+        self.cf.fit(X_train_oh.to_numpy(), self.y_train.to_numpy())
 
     def _explain(self, test_item, n_cf=1):
         record, label, pred, proba, target = test_item
 
-        rec_face = self.scale_encode(record.to_frame().T, self.encoder)
+        rec_face = self._transform(record.to_frame().T, self.OHE)
 
         # generate counterfactuals
         paths = self.cf.compute_path(
@@ -144,18 +143,18 @@ class FaceExplainer(BaseExplainer):
         # select the best counterfactual
         best_cf_vector = paths[0][1]
 
-        cfs_raw = self.encoder.inverse_transform([best_cf_vector])
-        cfs = pd.DataFrame(cfs_raw, columns=self.cat_features)
+        cfs_raw = self.OHE.inverse_transform([best_cf_vector])
+        cfs = pd.DataFrame(cfs_raw, columns=self.features)
         list_new_probs = self.model.predict_proba(cfs)[:, 1]
 
         expl_dict = prepare_output(*test_item, cfs, list_new_probs)
         return expl_dict
 
     # scale and encode the data
-    def scale_encode(self, data: pd.DataFrame, encoder) -> pd.DataFrame:
+    def _transform(self, data: pd.DataFrame, encoder) -> pd.DataFrame:
         data_encoded = pd.DataFrame(
-            encoder.transform(data[self.cat_features]),
-            columns=self.ohe_cat_columns,
+            encoder.transform(data[self.features]),
+            columns=self.face_features,
             index=data.index
         )
         return data_encoded

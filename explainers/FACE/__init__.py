@@ -437,6 +437,7 @@ class CFGenerator(object):
         )
         grid.fit(deepcopy(self.X))
         self.density_estimator = grid.best_estimator_
+        print("Best bandwidth:", grid.best_params_['bandwidth'])
 
     def compute_path(
             self,
