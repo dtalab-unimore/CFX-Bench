@@ -14,9 +14,6 @@ def get_cf_explainer(expl_name, expl_params):
     if expl_name == 'face':
         from explainers.face_explainer import FaceExplainer
         return FaceExplainer(**expl_params)
-    if expl_name == 'bfcf':
-        from explainers.bfcf_explainer import BruteForceCounterfactualExplainer
-        return BruteForceCounterfactualExplainer(**expl_params)
     if expl_name == 'proce':
         from explainers.proce_explainer import ProCEAEBinnedExplainer
         return ProCEAEBinnedExplainer(**expl_params)
@@ -36,5 +33,8 @@ def get_cf_explainer(expl_name, expl_params):
     if expl_name == 'llm-global':
         from explainers.global_explainers.llmglobal_explainer import LlmGlobalExplainer
         return LlmGlobalExplainer(**expl_params)
+    if expl_name == 'llm-local':
+        from explainers.global_explainers.llmlocal_explainer import LlmLocalExplainer
+        return LlmLocalExplainer(**expl_params)
 
     raise ValueError("Explainer not found!")

@@ -1,22 +1,20 @@
 import time
 
 import numpy as np
+import pandas as pd
 from optbinning import Scorecard
 from sklearn.preprocessing import MinMaxScaler
 
 from .FACEGroup.Feasibility import feasibility_consts
+# The inductive subclass. Drop facegroup_inductive.py into the .FACEGroup package
+# (next to FACEGroup.py) and have it do `from .FACEGroup import FACEGroup`, then:
+from .FACEGroup.facegroup_inductive import FACEGroupInductive
 from .FACEGroup.kernel import Kernel
 from .FACEGroup.utils import GraphBuilder, get_subgraphs_by_group, get_normalized_group_identifier_value, \
     get_false_negatives_by_group
 from .adapters import FaceGroupAdapter
-from .cf_explainer import BaseExplainer
-from .metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
-                            LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
+from .cf_explainer import BaseExplainer, _empty_explanation_dict
 from .utils_explainers import prepare_output, analyze_results, prepare_data_face
-
-# The inductive subclass. Drop facegroup_inductive.py into the .FACEGroup package
-# (next to FACEGroup.py) and have it do `from .FACEGroup import FACEGroup`, then:
-from .FACEGroup.facegroup_inductive import FACEGroupInductive
 
 NAME = "facegroup"
 EPSILON = 5
@@ -27,7 +25,8 @@ K = 50
 K_SELECTION_METHOD = "accross_all_ccs"
 CFE_SELECTION_METHOD = "greedy"
 ALG = "BINARY SEARCH"
-GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex_['female : divorced/separated/married']"
+# GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex_['female : divorced/separated/married']"
+GROUP_IDENTIFIER_GERMAN_CREDIT = "ForeignWorker_['yes']"
 GROUP_IDENTIFIER_LENDING = "home_ownership_['MORTGAGE']"
 GROUP_IDENTIFIER_COMPAS = "sex_['Female']"
 GROUP_IDENTIFIER_ADULT = "sex_[' Female']"
@@ -57,7 +56,7 @@ class FaceGroupExplainer(BaseExplainer):
     """
 
     def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
-                 dataset_name, output_dir, **kwargs):
+                 dataset_name, **kwargs):
         self.model = model
         self.df_train = df_train
         self.features = features
@@ -66,7 +65,6 @@ class FaceGroupExplainer(BaseExplainer):
         self.act_features = act_features
         self.target = target
         self.dataset_name = dataset_name
-        self.output_dir = output_dir
 
         # df_build: the frame the explainer is constructed on. Reset to a
         # RangeIndex so positional row i == graph node id i (the invariant the
@@ -138,14 +136,13 @@ class FaceGroupExplainer(BaseExplainer):
 
         # candidate CFs and factuals are TRAIN nodes (positional index == node id)
         candidate_counterfactuals = X_oh[self.model_ohe.predict(X_oh[self.face_features]) == 1]
-        self.candidate_counterfactuals = {index: row.to_numpy()
-                                          for index, row in candidate_counterfactuals.iterrows()}
+        self.candidate_counterfactuals = {index: row.to_numpy() for index, row in candidate_counterfactuals.iterrows()}
         factuals_oh = X_oh[self.model_ohe.predict(X_oh[self.face_features]) == 0]
         factuals_oh = {index: row.to_numpy() for index, row in factuals_oh.iterrows()}
         self.facegroup.set_candidates(self.candidate_counterfactuals)
 
-        gcfes, not_possible_to_cover_fns_group, time_gcfes = self.facegroup.compute_gcfes(
-            subgroups, self.candidate_counterfactuals, factuals_oh, MAX_D, COST_FUNCTION, K,
+        gcfes, not_possible_to_cover_fns_group, time_gcfes = self.facegroup.compute_gcfes(subgroups,
+            self.candidate_counterfactuals, factuals_oh, MAX_D, COST_FUNCTION, K,
             self.distances, K_SELECTION_METHOD, verbose=True, cfe_selection_method=CFE_SELECTION_METHOD)
 
         factuals_by_group = get_false_negatives_by_group(factuals_oh, group_identifier,
@@ -155,8 +152,7 @@ class FaceGroupExplainer(BaseExplainer):
 
         end = time.perf_counter()
 
-        self.dict = analyze_results(self.results, self.facegroup, self.graph,
-                                    self.feasibility_constraints_instance)
+        self.dict = analyze_results(self.results, self.facegroup, self.graph, self.feasibility_constraints_instance)
 
         # The compact set of LEARNED global recourse targets (the GCFE destinations).
         # These are train node ids; applying the global rule to an unseen instance
@@ -166,19 +162,10 @@ class FaceGroupExplainer(BaseExplainer):
             for t in (v if isinstance(v, (list, tuple, set, np.ndarray)) else [v])
         })
 
-        # metrics: descriptive audit over the BUILD (train) population.
-        # For a held-out TEST evaluation, have the caller pass test factuals here.
-        factuals = self.df_build[self.model.predict(self.df_build[self.features]) == 0]
-        training_efficiency = end - start
-        _, _ = compute_metrics_global(self.df_build, factuals, self.features, cat_features, num_features,
-                                      self.target, self.model, self._explain, self.binning_process,
-                                      training_efficiency, self.output_dir, write=True)
-
-        adapter = FaceGroupAdapter(self.facegroup, subgroups, self.candidate_counterfactuals, factuals_oh,
+        self.training_efficiency = end - start
+        self.adapter = FaceGroupAdapter(self.facegroup, subgroups, self.candidate_counterfactuals, factuals_oh,
                                    COST_FUNCTION, self.distances, K_SELECTION_METHOD, CFE_SELECTION_METHOD,
                                    factuals_by_group, ALG)
-        # _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
-        #                                 UPPER_LIMIT_RANGE_FOR_D, self.output_dir, self.distances, plot=True, write=True)
 
     # ------------------------------------------------------------------ #
     #  Transform one raw record into the face-feature vector.
@@ -228,10 +215,9 @@ class FaceGroupExplainer(BaseExplainer):
             # matching FaceExplainer's OHE.inverse_transform pattern. This avoids
             # any node-id/df-row index assumption: the vector is taken straight
             # from FACEGroup's own path structure.
-            import pandas as pd
             cf_vec = np.asarray(paths[min_target]['vector'], dtype=float).reshape(1, -1)
             cfs = pd.DataFrame(self.ohe.inverse_transform(cf_vec), columns=self.features)
         else:
-            cfs = record.to_frame().T   # no feasible recourse: return unchanged
+            return _empty_explanation_dict(test_item)
 
         return prepare_output(self.model, cfs, test_item)

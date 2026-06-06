@@ -169,8 +169,8 @@ def count_diversity(expl_set, features, tot_features, continuous_features):
     num_changes = 0
     for i in range(num_cf):
         for j in range(i + 1, num_cf):
-            for col in features:
-                if cf_list.iloc[i][col] != cf_list.iloc[j][col]:
+            for col in range(len(features)):
+                if cf_list[i][col] != cf_list[j][col]:
                     num_changes += 1 if col in continuous_features else 0.5
     return num_changes / (num_cf * num_cf * tot_features)
 

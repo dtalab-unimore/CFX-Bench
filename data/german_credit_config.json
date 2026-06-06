@@ -1,0 +1,86 @@
+{
+    "data_path": "data/german_credit/german_credit.csv",
+    "id": null,
+    "features": [
+        "account_check_status",
+        "duration_in_month",
+        "credit_history",
+        "purpose",
+        "credit_amount",
+        "savings",
+        "present_emp_since",
+        "installment_as_income_perc",
+        "personal_status_sex",
+        "other_debtors",
+        "present_res_since",
+        "property",
+        "age",
+        "other_installment_plans",
+        "housing",
+        "credits_this_bank",
+        "job",
+        "people_under_maintenance",
+        "telephone",
+        "foreign_worker"
+    ],
+    "target": "default",
+    "act_features": [
+        "account_check_status",
+        "duration_in_month",
+        "credit_amount",
+        "savings",
+        "present_emp_since",
+        "installment_as_income_perc",
+        "other_debtors",
+        "present_res_since",
+        "property",
+        "other_installment_plans",
+        "credits_this_bank",
+        "job",
+        "telephone"
+    ],
+    "binning_fit_params": {
+        "*": {
+            "monotonic_trend": "auto_asc_desc"
+        },
+        "account_check_status": {
+            "user_splits": [
+                ["no checking account"],
+                ["< 0 DM"],
+                ["0 <= ... < 200 DM"],
+                [">= 200 DM / salary assignments for at least 1 year"]
+            ],
+            "user_splits_fixed": [true, true, true, true], "monotonic_trend": "auto"
+        },
+        "savings": {
+            "user_splits": [
+                ["unknown/ no savings account"],
+                ["... < 100 DM"],
+                ["100 <= ... < 500 DM"],
+                ["500 <= ... < 1000 DM"],
+                ["... >= 1000 DM"]
+            ],
+            "user_splits_fixed": [true, true, true, true, true], "monotonic_trend": "auto"
+        },
+        "foreign_worker": {
+            "user_splits": [["yes"], ["no"]],
+            "user_splits_fixed": [true, true], "monotonic_trend": "auto"
+        }
+    },
+    "monotonic_features": {
+        "account_check_status": [
+            "['no checking account']",
+            "['< 0 DM']",
+            "['0 <= ... < 200 DM']",
+            "['>= 200 DM / salary assignments for at least 1 year']"
+        ],
+        "savings": [
+            "['unknown/ no savings account']",
+            "['... < 100 DM']",
+            "['100 <= ... < 500 DM']",
+            "['500 <= ... < 1000 DM']",
+            "['... >= 1000 DM']"
+        ],
+        "age": "num_asc"
+    }
+}

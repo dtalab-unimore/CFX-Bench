@@ -357,11 +357,7 @@ if __name__ == "__main__":
 
     config_path = {
         'german-credit': 'data/german_credit_config.json',
-        'german-credit-crif': 'data/german_credit_crif_config.json',
-        'german-credit-crif-full': 'data/german_credit_crif_full_config.json',
         'lending-club': 'data/lending_club_config.json',
-        'lending-club-2': 'data/lending_club_2_config.json',
-        'lending-club-3': 'data/lending_club_3_config.json',
     }[dataset]
     with open(config_path, 'r') as f:
         config = json.load(f)

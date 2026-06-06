@@ -3,9 +3,15 @@ import os
 import pandas as pd
 
 
-def extract_params(file_name: str):
-    file_name = file_name.split(os.sep)[-1].replace('LLM_metrics__', '')
-    llm, prompt_style, dataset, _, explainer, _, _, _ = file_name.split("__")
+def extract_params(file_name: str, base_output_dir='output/'):
+    # file_name = output/german-credit/llm-global/lr__auto-refuse__s42/LLM_metrics__gpt-4o-mini__base.json
+    file_name = file_name.replace(base_output_dir, '').split(os.sep)
+    if len(file_name) == 4:
+        dataset, explainer, _, file_name = file_name
+    elif len(file_name) == 5:
+        dataset, explainer, solver, _, file_name = file_name
+        explainer = f'{explainer}-{solver}'
+    llm, prompt_style = file_name.replace('LLM_metrics__', '').replace('.json', '').split("__")
     params = {
         'llm': llm, 'prompt_style': prompt_style, 'dataset': dataset, 'explainer': explainer
     }
@@ -41,33 +47,40 @@ def compute_agg_metrics(metric_file: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Script for collecting quality scores provided by LLMs.',
-        usage='collect_llm_metrics.py [<args>] [-h | --help]'
-    )
-    parser.add_argument('--res_dir', type=str)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(
+    #     description='Script for collecting quality scores provided by LLMs.',
+    #     usage='collect_llm_metrics.py [<args>] [-h | --help]'
+    # )
+    # parser.add_argument('--res_dir', type=str)
+    # args = parser.parse_args()
 
-    res_files = [os.path.join(args.res_dir, x) for x in os.listdir(args.res_dir) if x.startswith('LLM_metrics_')]
+    # res_files = [os.path.join(args.res_dir, x) for x in os.listdir(args.res_dir) if x.startswith('LLM_metrics_')]
+    res_files = [
+        f"output/german-credit/{explainer}/lr__auto-refuse__s42/LLM_metrics__gpt-4o-mini__base.json"
+        for explainer in ['dice/random', 'nice', 'ares', 'llm-global']
+    ]
     results = []
     for res_file in res_files:
-        res = compute_agg_metrics(res_file)
-        results.append(res)
+        if os.path.exists(res_file):
+            res = compute_agg_metrics(res_file)
+            results.append(res)
     results = pd.DataFrame(results)
 
-    overall_results = pd.pivot_table(
-        results[['overall', 'explainer', 'prompt_style']],
-        index=['prompt_style'], columns=['explainer'], values='overall'
-    )
-    properties = ['satisfaction', 'feasibility', 'consistency', 'completeness',
-                  'trust', 'understandability', 'fairness', 'complexity']
-    explainers = results['explainer'].unique()
-    for explainer in explainers:
-        expl_results = results[results['explainer'] == explainer][properties]
-        a = []
+    results.to_csv('output/LLM_metrics.csv', index=False)
 
-
-    a = []
+    # overall_results = pd.pivot_table(
+    #     results[['overall', 'explainer', 'prompt_style']],
+    #     index=['prompt_style'], columns=['explainer'], values='overall'
+    # )
+    # properties = ['satisfaction', 'feasibility', 'consistency', 'completeness',
+    #               'trust', 'understandability', 'fairness', 'complexity']
+    # explainers = results['explainer'].unique()
+    # for explainer in explainers:
+    #     expl_results = results[results['explainer'] == explainer][properties]
+    #     a = []
+    #
+    #
+    # a = []
 
 
 if __name__ == '__main__':

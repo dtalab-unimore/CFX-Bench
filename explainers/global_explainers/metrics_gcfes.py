@@ -16,8 +16,8 @@ UPPER_LIMIT_FOR_K = 30
 allowed_subkeys = ["Coverage", "Avg. distance", "Avg. path cost"]
 
 
-def compute_metrics(data, factuals, features, cat_features, num_features, target,
-                    model, explain, binning_process, training_efficiency):
+def compute_metrics(expl_sets: list[ExplanationSet], features, cat_features, num_features,
+                    model, binning_process):
     """
     Compute metrics for global counterfactual explanations.
     :returns:
@@ -41,11 +41,11 @@ def compute_metrics(data, factuals, features, cat_features, num_features, target
 
     binned = True
 
-    total = len(factuals)
+    total = len(expl_sets)
     flipped, covered = 0, 0
     costs_l1, costs_l2 = [], []
     unique_cfs, unique_deltas = [], []
-    inference_efficiency = []
+    # inference_efficiency = []
     attribute_change_frequency = pd.Series(0, index=features)
 
     if binned:
@@ -62,37 +62,39 @@ def compute_metrics(data, factuals, features, cat_features, num_features, target
         _scale_and_encode = scale_and_encode
         ...  # todo
 
-    for _, x in tqdm(factuals.iterrows(), total=total, desc="Computing metrics"):
-        record = x[features]
-        label = x[target]
-        pred = model.predict(x[features].to_frame().T)[0]
-        proba = model.predict_proba(x[features].to_frame().T)[0][pred]
+    # for _, x in tqdm(factuals.iterrows(), total=total, desc="Computing metrics"):
+    for expl in tqdm(expl_sets, desc="Computing metrics"):
+        # record = x[features]
+        # label = x[target]
+        # pred = model.predict(x[features].to_frame().T)[0]
+        # proba = model.predict_proba(x[features].to_frame().T)[0][pred]
 
-        # start timer to measure inference efficiency
-        start = time.perf_counter()
-        cfs = explain(test_item=[record, label, pred, proba, target])
-        # end timer to measure inference efficiency
-        end = time.perf_counter()
-        inference_efficiency.append(end - start)
+        # # start timer to measure inference efficiency
+        # start = time.perf_counter()
+        # cfs = explain(test_item=[record, label, pred, proba, target])
+        # # end timer to measure inference efficiency
+        # end = time.perf_counter()
+        # inference_efficiency.append(end - start)
 
-        cfs = ExplanationSet(**cfs)
-        cfs_pred = model.predict(cfs.get_list_expl_full())[0]
-        if cfs_pred != cfs.get_pred():
+        # cfs = ExplanationSet(**cfs)
+        # cfs_pred = model.predict(cfs.get_list_expl_full())[0]
+        record = expl.get_record()
+        if len(expl) > 0 and expl.get_new_preds().iloc[0] != expl.get_pred():
             flipped += 1
             record_processed = _scale_and_encode(record, scaler, encoder, num_features, cat_features)
-            cfs_processed = _scale_and_encode(cfs.get_list_expl_full().loc[0], scaler, encoder, num_features, cat_features)
+            cfs_processed = _scale_and_encode(expl.get_list_expl_full().loc[0], scaler, encoder, num_features, cat_features)
             costs_l1.append((record_processed - cfs_processed).abs().sum(axis=1)[0])
             costs_l2.append(np.linalg.norm(record_processed - cfs_processed))
             if binned:
                 record_bin = record
-                cfs_bin = cfs.get_list_expl_full().loc[0]
+                cfs_bin = expl.get_list_expl_full().loc[0]
             else:
                 record_bin = binning_process.transform(record.to_frame().T, metric="bins").squeeze()
-                cfs_bin = binning_process.transform(cfs.get_list_expl_full(), metric="bins").loc[0]
+                cfs_bin = binning_process.transform(expl.get_list_expl_full(), metric="bins").loc[0]
             unique_cfs.append(cfs_bin)
             unique_deltas.append((record_processed - cfs_processed).loc[0])
             attribute_change_frequency += (record_bin != cfs_bin)
-        if (cfs.get_list_expl_full().iloc[0] != cfs.get_record()).any():
+        # if (expl.get_list_expl_full().iloc[0] != expl.get_record()).any():
             covered += 1
 
     correct_recourse = flipped / covered
@@ -105,7 +107,7 @@ def compute_metrics(data, factuals, features, cat_features, num_features, target
     unique_cfs = len(unique_cfs.drop_duplicates()) / flipped
     unique_deltas = len(unique_deltas.drop_duplicates()) / flipped
     attribute_change_frequency /= flipped
-    inference_efficiency = np.mean(inference_efficiency)
+    # inference_efficiency = np.mean(inference_efficiency)
 
     metrics = {
             'correct_recourse': correct_recourse,
@@ -118,8 +120,8 @@ def compute_metrics(data, factuals, features, cat_features, num_features, target
             'median_cost_l2': median_cost_l2,
             'unique_cfs': unique_cfs,
             'unique_deltas': unique_deltas,
-            'inference_efficiency': inference_efficiency,
-            'training_efficiency': training_efficiency
+            # 'inference_efficiency': inference_efficiency,
+            # 'training_efficiency': training_efficiency
         }
     return metrics, attribute_change_frequency
 
@@ -131,10 +133,11 @@ def write_metrics(name, metrics, attribute_change_frequency):
     with open(name + '/attribute_change_frequency.json', 'w') as f: json.dump(attribute_change_frequency, f, indent=4)
 
 
-def compute_metrics_global(data, factuals, features, cat_features, num_features, target, model,
-                           explain, binning_process, training_efficiency, name, write=False):
-    metrics, attribute_change_frequency = compute_metrics(data, factuals, features, cat_features, num_features, target,
-                                                          model, explain, binning_process, training_efficiency)
+def compute_metrics_global(expl_sets, features, cat_features, num_features, model,
+                           binning_process, name, write=False):
+    metrics, attribute_change_frequency = compute_metrics(
+        expl_sets, features, cat_features, num_features, model, binning_process
+    )
     if write:
         write_metrics(name, metrics, attribute_change_frequency)
     return metrics, attribute_change_frequency

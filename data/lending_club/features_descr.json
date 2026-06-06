@@ -1,0 +1,11 @@
+{
+  "emp_length": "The length of time the borrower has been employed in their current job at the time of the loan application.",
+  "annual_inc": "The borrower’s self-reported annual income provided during the loan application.",
+  "credit_years": "The age of the borrower’s credit history at the time the loan was issued, measured from the earliest reported credit line.",
+  "grade": "Lending Club’s assigned credit risk grade based on the borrower’s profile and credit history.",
+  "home_ownership": "The borrower’s residential ownership status as reported during the loan application or obtained from the credit report.",
+  "purpose": "The borrower’s stated purpose for requesting the loan.",
+  "addr_state": "The borrower’s state of residence reported in the loan application.",
+  "loan_status": "The repayment outcome of the loan, indicating whether the borrower ultimately repaid or defaulted.",
+  "open_acc": "The number of currently active credit lines in the borrower’s credit file, including open revolving and installment accounts."
+}

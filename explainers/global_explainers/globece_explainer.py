@@ -9,10 +9,7 @@ from .GLOBE_CE_main.ares import AReS
 from .GLOBE_CE_main.globe_ce import GLOBE_CE
 from .adapters import GlobeCeAdapter
 from .ares_globece_loader import DatasetLoader
-from .cf_explainer import BaseExplainer
-from .metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
-                            LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
-from .model_wrapper import ModelWrapper
+from .cf_explainer import BaseExplainer, _empty_explanation_dict
 from .utils_explainers import prepare_data_ares_globece, prepare_output
 
 NAME = "globe-ce"
@@ -22,7 +19,7 @@ SCHEME = "random"
 
 class GlobeCeExplainer(BaseExplainer):
     def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
-                 dataset_name, output_dir, **kwargs):
+                 dataset_name, **kwargs):
         self.model = model
         self.df_train = df_train
         self.features = features
@@ -31,7 +28,6 @@ class GlobeCeExplainer(BaseExplainer):
         self.act_features = act_features
         self.target = target
         self.dataset_name = dataset_name
-        self.output_dir = output_dir
 
         # prepare data
         self.cat_features, _, self.immutables, self.ohe, self.model_ohe, X_oh, self.binning_process, _, n_bins = (
@@ -72,6 +68,11 @@ class GlobeCeExplainer(BaseExplainer):
         # compute best average costs given each input uses its minimum scalar
         costs_bound, corrects_bound = self.globe_ce.accuracy_cost_bounds(min_costs)
 
+        self.scalars_div = []
+        for i in range(n_div):
+            max_scalar = max(self.globe_ce.bisection(self.globe_ce.deltas_div[i]), 1)
+            self.scalars_div.append(np.linspace(0, max_scalar, 1000))
+
         # end timer to measure training efficiency
         end = time.perf_counter()
 
@@ -89,50 +90,33 @@ class GlobeCeExplainer(BaseExplainer):
         ax[1].set_xlabel('Cost')
         plt.show()
 
-        # compute metrics
-        name = self.dataset_name + "_" + NAME
-        self.factuals = self.df_train[self.model.predict(self.df_train[self.features]) == 0]
-        training_efficiency = end - start
-        _, _ = compute_metrics_global(self.df_train, self.factuals, self.features, cat_features, num_features, self.target,
-                                      self.model, self._explain, self.binning_process, training_efficiency, self.output_dir, write=True)
-
-        # compute metrics auc
-        adapter = GlobeCeAdapter(self.globe_ce, self.factuals[self.features].reset_index(drop=True), self.k_s,
-                                 self.min_costs_idxs, self.binning_process, self.ohe)
-        _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
-                                        UPPER_LIMIT_RANGE_FOR_D, self.output_dir, None, plot=True, write=True)
+        self.training_efficiency = end - start
+        self.adapter = GlobeCeAdapter(self.globe_ce, None, self.k_s,
+                                 self.min_costs_idxs, self.binning_process, self.ohe, self.scalars_div)
 
     def _explain(self, test_item, n_cf=1):
         # unpack test item
         record, label, pred, proba, target = test_item
 
-        # find factual index
-        factuals = self.factuals[self.features].reset_index(drop=True)
-        mask = (factuals[self.features] == record.values).all(axis=1)
-        factual_idx = factuals.index[mask][0]
-        # fetch correct scalar
-        k_s, delta, scalar_idx = None, None, None
+        record_oh = self.ohe.transform(record.to_frame().T)
+
+        delta_used, lambda_coef = None, None
         for i in range(self.globe_ce.deltas_div.shape[0]):
-            # pick the best global direction
-            delta = self.globe_ce.deltas_div[i]
-            # scale direction
-            k_s = self.k_s[i]
-            # minimal scalar indices for each affected point
-            min_idxs = self.min_costs_idxs[i]
-            scalar_idx = min_idxs[factual_idx]
-            if not np.isnan(scalar_idx):
+            delta_i = self.globe_ce.deltas_div[i]
+            scalars_i = self.scalars_div[i]
+            _, cos_s, _ = self.globe_ce.scale(delta_i, scalars=scalars_i, x_aff=record_oh, vector=True,
+                                              disable_tqdm=True)
+            valid = cos_s[:, 0] != 0
+            if valid.any():
+                idx = int(np.argmax(valid))
+                delta_used, lambda_coef = delta_i, scalars_i[idx]
                 break
-        if np.isnan(scalar_idx):
-            cfs = record.to_frame().T
-            # raise RuntimeError("Globe-CE could not find a valid counterfactual.")
+
+        if lambda_coef is None:
+            return _empty_explanation_dict(test_item)
         else:
-            lambda_coef = k_s[int(scalar_idx)]
-            # construct CF
-            cfs = (self.globe_ce.x_aff[factual_idx] + (lambda_coef * delta)).reshape(1, -1)
-            # cfs = pd.DataFrame(cfs, columns=self.ohe.get_feature_names_out())
-            # cfs = self.wrapper_model.decode(cfs, self.features, self.ohe.get_feature_names_out(),
-            #                                 self.num_features, self.binning_process)
-            cfs = self.ohe.inverse_transform(cfs)
+            cfs_oh = (record_oh + lambda_coef * delta_used)
+            cfs = self.ohe.inverse_transform(cfs_oh)
             cfs = pd.DataFrame(cfs, columns=self.features)
 
         # prepare the output in the required format

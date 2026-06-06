@@ -1,0 +1,21 @@
+{
+    "data_path": "data/compas/compas-scores-two-years.csv",
+    "test_split": 0.3,
+    "test_sample": 500,
+    "id": null,
+    "target": "two_year_recid",
+    "features": [
+        "sex", "age", "race", "priors_count", "days_b_screening_arrest", "c_jail_in", "c_jail_out",
+        "c_charge_degree", "is_recid", "is_violent_recid", "score_text"
+    ],
+    "act_features": [
+        "priors_count", "days_b_screening_arrest", "c_jail_in", "c_jail_out",
+        "c_charge_degree", "is_recid", "is_violent_recid", "score_text"
+    ],
+    "binning_fit_params": {
+        "*": {
+            "monotonic_trend": "auto_asc_desc",
+            "min_n_bins": 2
+        }
+    }
+}

@@ -1,9 +1,9 @@
-import pandas as pd
 import math
-from explainers.global_explainers.scorecard_one_hot import prepare_data_ohe
-from sklearn.cluster import KMeans
-from sklearn.metrics import pairwise_distances
-import numpy as np
+
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
+
+from aux_models import OneHotDataClassifierAdapter
 
 CONT_FEATURES_GERMAN_CREDIT = ["duration", "credit_amount", "age"]
 CONT_FEATURES_LENDING = ["emp_length", "annual_inc", "open_acc", "credit_years"]
@@ -79,42 +79,6 @@ def compute_bounds(v):
     return lb, ub
 
 
-def _rule_applies(x, outer_if, inner_if, num_features):
-    """
-    Check if rule applies.
-    """
-
-    x_cf = x.copy()
-    for lit in (outer_if + inner_if):
-        f, v = lit.split(" = ", 1)
-        f, v = f.strip(), v.strip()
-        if f in num_features:
-            lb, ub = compute_bounds(v)
-            if lb != '-inf' and ub != 'inf':
-                if x_cf[f] < lb or x_cf[f] > ub:
-                    return False
-            elif lb == '-inf' and ub != 'inf':
-                if x_cf[f] > ub:
-                    return False
-            elif ub == 'inf' and lb != '-inf':
-                if x_cf[f] < lb:
-                    return False
-        else:
-            if v.count("'") > 2:
-                v_list = v.strip("[]").split("' '")
-                flag = False
-                for value in v_list:
-                    if value.strip("'") == x_cf[f]:
-                        flag = True
-                if not flag:
-                    return False
-            else:
-                v = v.strip("[]'")
-                if v != x_cf[f]:
-                    return False
-    return True
-
-
 def rule_applies(x_cf, outer_if, inner_if, num_features):
     """
     Check if rule applies.
@@ -126,41 +90,6 @@ def rule_applies(x_cf, outer_if, inner_if, num_features):
         if x_cf[f] != v:
             return False
     return True
-
-
-def _apply_then(x, then, num_features):
-    """
-    Apply then rule.
-    """
-
-    x_cf = x.copy()
-    for lit in then:
-        f, v = lit.split(" = ", 1)
-        f, v = f.strip(), v.strip()
-        if f in num_features:
-            lb, ub = compute_bounds(v)
-            if lb != '-inf' and ub != 'inf':
-                if x_cf[f] < lb or x_cf[f] > ub:
-                    v = (lb + ub) / 2
-                else:
-                    v = x_cf[f]
-            elif lb == '-inf' and ub != 'inf':
-                if x_cf[f] > ub:
-                    v = ub
-                else:
-                    v = x_cf[f]
-            elif ub == 'inf' and lb != '-inf':
-                if x_cf[f] < lb:
-                    v = lb
-                else:
-                    v = x_cf[f]
-        else:
-            if v.count("'") > 2:
-                v = v.strip("[]").split("' '")[0].strip("'")
-            else:
-                v = v.strip("[]'")
-        x_cf[f] = v
-    return x_cf
 
 
 def apply_then(x_cf, then, num_features):
@@ -266,7 +195,8 @@ def prepare_data_ares_globece(features, act_features, df_train, target, model, d
     cat_features = features
     cont_features = []
     if dataset_name == "german-credit":
-        cont_features = CONT_FEATURES_GERMAN_CREDIT
+        # cont_features = CONT_FEATURES_GERMAN_CREDIT
+        ...
     elif dataset_name == "lending":
         cont_features = CONT_FEATURES_LENDING
     elif dataset_name == "compas":
@@ -281,32 +211,17 @@ def prepare_data_ares_globece(features, act_features, df_train, target, model, d
     return cat_features, cont_features, immutables, ohe, model_ohe, X_oh, binning_process, y, n_bins
 
 
-def compute_elbow(data, k_range):
+def prepare_data_ohe(df_train, features, target, model):
     """
-    Elbow method ro find the optimal k in KMeans.
+    prepare data using binning and one-hot encoding.
     """
+    ohe_sep = '_'
+    X, y = df_train[features], df_train[target]
+    OHE = OneHotEncoder(sparse_output=False, drop=None, feature_name_combiner=lambda a, b: f"{a}{ohe_sep}{b}")  # feature_name_combiner?
+    X_oh = OHE.fit_transform(X, y)
+    X_oh = pd.DataFrame(X_oh, columns=OHE.get_feature_names_out(), index=X.index)
+    model_oh = OneHotDataClassifierAdapter(model, OHE.get_feature_names_out(), ohe_sep)
+    model_oh.fit(X_oh)
+    bp = model.binning_process_  # for backward compatibility
 
-    inertias = []
-    for k in k_range:
-        kmeans = KMeans(n_clusters=k)
-        kmeans.fit(data)
-        inertias.append(kmeans.inertia_)
-    return inertias
-
-
-def select_diverse_points(X, n_select):
-    """
-    Select diverse points inside a cluster.
-    """
-
-    # start from a random point
-    selected_indices = [np.random.randint(len(X))]
-    # compute pairwise distances
-    distances = pairwise_distances(X)
-    for _ in range(1, n_select):
-        min_dist_to_selected = np.min(distances[:, selected_indices], axis=1)
-        # select index at maximum distance
-        next_idx = np.argmax(min_dist_to_selected)
-        selected_indices.append(next_idx)
-
-    return selected_indices
+    return OHE, model_oh, X_oh, bp, y

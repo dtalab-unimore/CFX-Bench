@@ -9,19 +9,23 @@ from copy import deepcopy
 
 import numpy as np
 import pandas as pd
-import torch  # TODO: check if torch is necessary
-from catboost import CatBoostClassifier
+import torch
 from optbinning import BinningProcess
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score, r2_score
-from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
-from aux_models import ClassifierForBinnedData, ClassifierForMixedDataV2, UniversalProbabilityRescaler
+from aux_models import ClassifierForBinnedData
 from dataset import get_dataset
 from explainers import get_cf_explainer
+from explainers.global_explainers.metrics_gcfes import compute_metrics_global, compute_metrics_auc_global, \
+    LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K, UPPER_LIMIT_RANGE_FOR_D
 from test_case_generator import TestCaseGenerator
 from utils import get_binning_maps, OrdinalBinsEncoder, clean_numpy2_strings
+
+
+LOCAL_EXPLAINERS  = ['ar', 'dice', 'face', 'nice', 'optbin', 'proce']
+GLOBAL_EXPLAINERS = ['ares', 'globe-ce', 'facegroup', 'glance', 'llm-global', 'llm-local']
 
 
 def parse_args():
@@ -35,23 +39,18 @@ def parse_args():
     parser.add_argument('--dataset', type=str, choices=[
         'german-credit', 'german-credit-crif', 'german-credit-crif-mt', 'german-credit-crif-full',
         'lending-club', 'lending-club-2', 'lending-club-2-mt', 'lending-club-3',
-        'adult', 'heloc', 'compas',
+        'adult', 'compas',
     ])
-    parser.add_argument('--model_name', type=str, default='lr', choices=['lr', 'catboost'])
+    parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
     parser.add_argument('--test_case_sel_method', type=str, default='border',
                         choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
-    parser.add_argument('--explainer_name', type=str, choices=[
-        'ar', 'dice', 'face', 'nice', 'nice-actionables', 'optbin', 'proce', 'bfcf',
-        'ares', 'globe-ce', 'facegroup', 'glance', 'llm-global'
-    ])
+    parser.add_argument('--explainer_name', type=str, choices=(LOCAL_EXPLAINERS + GLOBAL_EXPLAINERS))
     parser.add_argument('--tag', type=str, default='', help='Optional tag to append to the output directory name.')
     parser.add_argument('--timestamp', action='store_true', help='Whether to append a timestamp to the output directory name. Ignored if --tag is provided.')
     parser.add_argument('--seed', type=int, default=42)
 
     # Explainer specific params
-    parser.add_argument('--bfcf-solver', type=str, default='opt', choices=['opt', 'exp'])
     parser.add_argument('--dice-solver', type=str, default='random', choices=['random', 'genetic', 'kdtree'])
-    parser.add_argument('--mixed', action="store_true")
     args = parser.parse_args()
 
     return args
@@ -64,10 +63,7 @@ def conf_to_str(conf):
     test_case = conf['test_case_sel_method']
     seed = conf['seed']
 
-    if explainer == 'bfcf':
-        bfcf_solver = conf['bfcf_solver']
-        explainer = f'{explainer}/{bfcf_solver}'
-    elif explainer == 'dice':
+    if explainer == 'dice':
         dice_solver = conf['dice_solver']
         explainer = f'{explainer}/{dice_solver}'
 
@@ -118,15 +114,6 @@ def compute_stats(metrics: pd.DataFrame) -> pd.Series:
 
     return stats
 
-
-CATBOOST_INT_MONOTONICITY = {
-    'german-credit-crif-mt': {
-        'savings.account.and.bonds': 1,
-        'other.installment.plans': 1,
-        'age.in.years': 1,
-    },
-}
-
 import re
 
 
@@ -167,21 +154,19 @@ def main():
     test_sample = dataset.get_test_sample()
     binning_fit_params = dataset.get_binning_fit_params()
     threshold_pos = dataset.get_threshold_pos()
-    threshold_pos = 0.5
 
     # === Pascal Case ===
-    X_train.rename(columns=to_pascal_case, inplace=True)
-    X_test.rename(columns=to_pascal_case, inplace=True)
-    features = [to_pascal_case(f) for f in features]
-    num_features, cat_features = [to_pascal_case(f) for f in num_features], [to_pascal_case(f) for f in cat_features]
-    act_features = [to_pascal_case(f) for f in act_features]
-    monotonic_features = {to_pascal_case(f): v for f, v in monotonic_features.items()}
-    feature_costs = {to_pascal_case(f): v for f, v in feature_costs.items()}
-    binning_fit_params = {to_pascal_case(f): v for f, v in binning_fit_params.items()}
+    pascal_case_map = {f: to_pascal_case(f) for f in features}
+    inverse_pascal_case_map = {v: k for k, v in pascal_case_map.items()}
+    X_train.rename(columns=pascal_case_map, inplace=True)
+    X_test.rename(columns=pascal_case_map, inplace=True)
+    features = [pascal_case_map[f] for f in features]
+    num_features, cat_features = [pascal_case_map[f] for f in num_features], [pascal_case_map[f] for f in cat_features]
+    act_features = [pascal_case_map[f] for f in act_features]
+    monotonic_features = {pascal_case_map[f]: v for f, v in monotonic_features.items()}
+    feature_costs = {pascal_case_map[f]: v for f, v in feature_costs.items()}
+    binning_fit_params = {pascal_case_map[f]: v for f, v in binning_fit_params.items()}
     # ======
-
-    # if args.dataset == 'lending-club-2-mt':
-    #     X_train, _, y_train, _, = train_test_split(X_train, y_train, train_size=1000, stratify=y_train)
 
     output_dir = 'output'
     if args.timestamp or args.tag:
@@ -202,106 +187,54 @@ def main():
 
     if args.model_name == 'lr':
         estimator = LogisticRegression(solver="newton-cholesky", penalty=None)
-    elif args.model_name == 'catboost':
-        estimator = CatBoostClassifier(
-            random_seed=args.seed,
-            monotone_constraints=CATBOOST_INT_MONOTONICITY[args.dataset],
-        )
     else:
-        raise NotImplementedError("Supported models: ['lr', 'catboost']")
+        raise NotImplementedError("Supported models: ['lr']")
 
     X_train_orig, X_test_orig = X_train.copy(), X_test.copy()
 
-    if conf['mixed']:
-        """# todo: is binning necessary at all?
-        # === Mixed version ===
-        # act_features = list(set(act_features).union(set(num_features)))
-        # monotonic_features = {}
-        # n = 0
-        # _cat_features = deepcopy(cat_features)
-        # cat_features = cat_features + num_features[n:]
-        # num_features = num_features[:n]
-        # cat_features = sorted(cat_features, key=lambda x: features.index(x))
-        # num_features = sorted(num_features, key=lambda x: features.index(x))
-        binning_fit_params = dataset.get_binning_fit_params()
-        binning_process = BinningProcess(cat_features, binning_fit_params=binning_fit_params, categorical_variables=cat_features)
-        # binning_process = BinningProcess(cat_features, binning_fit_params=binning_fit_params, categorical_variables=_cat_features)
-        binning_process.fit(X_train[cat_features], y_train)
+    # === Fully binned version ===
+    saved_models_dir = os.path.join('saved_models', conf['dataset'], conf['model_name'], f's{conf["seed"]}')
+    os.makedirs(saved_models_dir, exist_ok=True)
+    saved_model_path = saved_models_dir + '/model.pkl'
+    if os.path.exists(saved_model_path):
+        print("Loading saved model")
+        with open(saved_model_path, 'rb') as f:
+            classifier = pickle.load(f)
+        binning_process = classifier.binning_process_
+        X_train = binning_process.transform(X_train, metric='bins')
+        X_test = binning_process.transform(X_test, metric='bins')
+        X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
+        if monotonic_features:
+            resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
+    else:
+        binning_process = BinningProcess(
+            features,
+            binning_fit_params=binning_fit_params,
+            categorical_variables=cat_features
+        )
 
-        X_train.loc[:, cat_features] = binning_process.transform(X_train.loc[:, cat_features], metric='bins')
-        X_test.loc[:, cat_features] = binning_process.transform(X_test.loc[:, cat_features], metric='bins')
+        binning_process.fit(X_train, y_train)
+
+        X_train = binning_process.transform(X_train, metric='bins')
+        X_test = binning_process.transform(X_test, metric='bins')
+        X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
 
         if monotonic_features:
             resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
 
-        # classifier = ClassifierForMixedData(estimator, binning_process, cat_features, num_features).fit(X_train, y_train)
-        classifier = ClassifierForMixedDataV2(
-            estimator, binning_process, dataset.get_cat_features(False), num_features, dataset.get_ord_features()
+        classifier = ClassifierForBinnedData(
+            estimator, binning_process, transform_type='woe'
         ).fit(X_train, y_train)
-        # ==="""
-    else:
-        # === Fully binned version ===
-        saved_models_dir = os.path.join('saved_models', conf['dataset'], conf['model_name'], f's{conf["seed"]}')
-        os.makedirs(saved_models_dir, exist_ok=True)
-        saved_model_path = saved_models_dir + '/model.pkl'
-        if os.path.exists(saved_model_path):
-            print("Loading saved model")
-            with open(saved_model_path, 'rb') as f:
-                classifier = pickle.load(f)
-            binning_process = classifier.binning_process_
-            X_train = binning_process.transform(X_train, metric='bins')
-            X_test = binning_process.transform(X_test, metric='bins')
-            X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
-            if monotonic_features:
-                resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
-        else:
-            # temporary circuit-breaker to force the use of the already trained model
-            # raise RuntimeError(f"No saved model found at {saved_model_path}. Please train the model first by running the script without this check.")
+        with open(saved_model_path, 'wb') as f:
+            pickle.dump(classifier, f)
+        with open(saved_models_dir + '/binning_fit_params.json', 'w') as f:
+            json.dump(binning_fit_params, f, indent=4)
+        if monotonic_features:
+            with open(saved_models_dir + '/monotonic_features.json', 'w') as f:
+                json.dump(monotonic_features, f, indent=4)
 
-            # monotonic_features = {}
-            # for f in num_features:
-            #     del binning_fit_params[f]['max_n_bins']
-            binning_process = BinningProcess(
-                features,
-                binning_fit_params=binning_fit_params,
-                categorical_variables=cat_features
-            )
-
-            binning_process.fit(X_train, y_train)
-
-            X_train = binning_process.transform(X_train, metric='bins')
-            X_test = binning_process.transform(X_test, metric='bins')
-            X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
-
-            if monotonic_features:
-                resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
-
-            transform_ = {
-                'lr': 'woe',
-                # 'catboost': None,
-                'catboost': 'id',
-            }[args.model_name]
-            estimator_fit_kwargs = {
-                'lr': None,
-                'catboost': {
-                    # 'cat_features': list(range(len(features))),
-                    'eval_set': (X_test, y_test),  # fixme
-                }
-            }[args.model_name]
-
-            classifier = ClassifierForBinnedData(
-                estimator, binning_process, transform_, estimator_fit_kwargs
-            ).fit(X_train, y_train)
-            with open(saved_model_path, 'wb') as f:
-                pickle.dump(classifier, f)
-            with open(saved_models_dir + '/binning_fit_params.json', 'w') as f:
-                json.dump(binning_fit_params, f, indent=4)
-            if monotonic_features:
-                with open(saved_models_dir + '/monotonic_features.json', 'w') as f:
-                    json.dump(monotonic_features, f, indent=4)
-
-        num_features, cat_features = [], features
-        # ===
+    num_features, cat_features = [], features
+    # ===
 
     # Inference
     y_proba = classifier.predict_proba(X_test)
@@ -312,16 +245,6 @@ def main():
     print(json.dumps(report, indent=4))
     with open(os.path.join(output_dir, 'classification_report.json'), 'w') as f:
         json.dump(report, f, indent=4)
-
-    # WARPED CLASSIFIER
-    is_classifier_warped = False
-    if not np.isclose(threshold_pos, 0.5):
-        is_classifier_warped = True
-        classifier_orig = deepcopy(classifier)
-        # classifier.estimator_ = warp_classifier(classifier.estimator_, threshold_pos)
-        classifier.estimator_ = UniversalProbabilityRescaler(classifier.estimator_, threshold_pos).fit(None, None)
-        y_proba = classifier.predict_proba(X_test)
-        y_pred = classifier.predict(X_test)  # custom threshold
 
     # Explanation
     test_case = TestCaseGenerator(
@@ -359,9 +282,10 @@ def main():
         explainer_params['random_state'] = args.seed
         explainer_params['verbose'] = True
     elif args.explainer_name == 'optbin':
+        linear_estimator = deepcopy(classifier.estimator_)
         explainer_params.update({
             'binning_process': classifier.binning_process_,
-            'estimator': classifier.estimator_,
+            'estimator': linear_estimator,
             'X_train': X_train_orig,  # original, non-binned data
         })
         explainer_params.pop('model')
@@ -369,7 +293,11 @@ def main():
         del explainer_params['X_train']
         del explainer_params['y_train']
         explainer_params['df_train'] = pd.concat([X_train, y_train], axis=1)
-        explainer_params['output_dir'] = output_dir
+        explainer_params['dataset_name'] = args.dataset
+    elif args.explainer_name == 'llm-local':
+        del explainer_params['X_train']
+        del explainer_params['y_train']
+        explainer_params['df_train'] = pd.concat([X_train_orig, y_train], axis=1)
         explainer_params['dataset_name'] = args.dataset
 
     global_start_time = time.time()
@@ -379,16 +307,6 @@ def main():
         expl_params=explainer_params
     )
 
-    # from evaluation._evaluator import ExplSetEvaluator
-    # evaluator = ExplSetEvaluator(
-    #     model=classifier,
-    #     continuous_features=num_features,
-    #     categorical_features=cat_features,
-    #     X_train=X_train,
-    #     X_test=X_test,
-    #     y_pred=y_pred,
-    #     act_features=act_features,
-    # )
     from evaluation.evaluator import ExplSetEvaluator
     evaluator = ExplSetEvaluator(
         model=classifier,
@@ -419,7 +337,7 @@ def main():
         cf_times.append(elapsed_time)
         records_orig.append(X_test_orig.loc[record_id])
 
-        # if i == 2: break  # TODO: debug
+        # if i == 1: break  # TODO: debug
 
     global_elapsed_time = time.time() - global_start_time
 
@@ -439,8 +357,6 @@ def main():
             costs = expl_set.costs
             cost = np.mean(costs)
         else:
-            # diffs = (expl_set.list_expl_full.replace(bin_id_map).values -
-            #          expl_set.record.to_frame().T.replace(bin_id_map).values)
             if enc is None:
                 enc = OrdinalBinsEncoder(features, monotonic_features, binning_process).fit(X_train, y_train)
             if (cfs := expl_set.list_expl_full).shape[0] > 0:
@@ -463,24 +379,36 @@ def main():
     with open(os.path.join(output_dir, 'STATS.json'), 'w') as f:
         json.dump(global_stats.to_dict(), f, indent=4)
 
-    # REVERT TO ORIGINAL CLASSIFIER IF WARPED
-    if is_classifier_warped:
-        for expl in list_expl:
-            expl.proba = classifier_orig.predict_proba(expl.get_record().to_frame().T)[0, 1]
-            if len(expl) > 0:
-                expl.list_new_probs = pd.Series(classifier_orig.predict_proba(expl.list_expl_full)[:, 1])
+    if args.explainer_name in GLOBAL_EXPLAINERS:
+        _, _ = compute_metrics_global(
+            list_expl,
+            features=features,
+            cat_features=cat_features,
+            num_features=num_features,
+            model=classifier,
+            binning_process=binning_process,
+            name=output_dir,
+            write=True
+        )
 
-    # # --- Temporary patch: flip every label and prediction (1-x) for consistency with previous results.
-    # for expl in list_expl:
-    #     expl.label = 1 - expl.label
-    #     expl.pred = 1 - expl.pred
-    #     expl.proba = 1 - expl.proba
-    #     expl.target = 1 - expl.target
-    #     expl.list_new_preds = 1 - expl.list_new_preds
-    #     expl.list_new_probs = 1 - expl.list_new_probs
-    # # ---
+        adapter = explainer.adapter
+        adapter.factuals = test_case.X
+        _ = compute_metrics_auc_global(
+            adapter=adapter,
+            lower_limit_range_for_d=LOWER_LIMIT_RANGE_FOR_D,
+            upper_limit_for_k=UPPER_LIMIT_FOR_K,
+            upper_limit_range_for_d=UPPER_LIMIT_RANGE_FOR_D,
+            name=output_dir,
+            distances=None,
+            plot=True,
+            write=True
+        )
+
     for record_orig, expl in zip(records_orig, list_expl):
         expl.record = record_orig
+        expl.record.rename(inverse_pascal_case_map, inplace=True)
+        expl.list_expl_full.rename(columns=inverse_pascal_case_map, inplace=True)
+        expl.list_expl_changes.rename(columns=inverse_pascal_case_map, inplace=True)
     with open(os.path.join(output_dir, 'CF.json'), 'w') as f:
         json.dump([expl.to_json() for expl in list_expl], f, indent=4)
 
@@ -500,14 +428,14 @@ def resolve_monotonic_features_placeholders(monotonic_features: dict, binning_pr
             categories_ = binning_table['Bin'].astype(str).tolist()
             if categories == 'num_desc':
                 categories_ = categories_[::-1]
-            monotonic_features[feature] = categories_
+            monotonic_features[feature] = clean_numpy2_strings(categories_)
         elif feature in cat_features and categories in ['event_asc', 'event_desc']:
             binned_variable = bp.get_binned_variable(feature)
             binning_table = binned_variable.binning_table.build(add_totals=False)
             binning_table = binning_table.query("Bin not in ['Missing', 'Special']")
             binning_table = binning_table.sort_values(by='Event rate', ascending=(categories == 'event_asc'))
             categories_ = binning_table['Bin'].astype(str).tolist()
-            monotonic_features[feature] = categories_
+            monotonic_features[feature] = clean_numpy2_strings(categories_)
 
 
 if __name__ == '__main__':

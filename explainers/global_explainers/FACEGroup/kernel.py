@@ -210,6 +210,10 @@ class Kernel:
             bandwith = 0.08858667904100824
             return bandwith
 
+        elif dataset_Name == 'lending-club-2-mt':
+            bandwith = 0.08858667904100824
+            return bandwith
+
         else:
             """
             For other datasets, return a default value. To be updated based on needs.

@@ -299,6 +299,7 @@ class CFGenerator(object):
             weights = self.weight_function(np.exp(densities)) * final_d
         else:
             weights = self.weight_function(sigmoid(densities)) * final_d
+        weights = np.maximum(weights, 0.0)  # FACE cost is a non-negative traversal cost
 
         # 8. Build the sparse kernel. radius_neighbors yields unique (i, j) pairs,
         #    so no duplicate entries are summed by the COO->CSR construction.
@@ -493,6 +494,7 @@ class CFGenerator(object):
             weights = self.weight_function(transformed) * dists[valid_neighbors]
         else:
             weights = self.weight_function(dists[valid_neighbors])
+        weights = np.maximum(weights, 0.0)
 
         new_edges = [
             (temp_node_id, int(j), float(w))

@@ -1,26 +1,24 @@
+import json
+import re
+# from llama_cpp import Llama
+import time
+
+import pandas as pd
+from optbinning import Scorecard
 from sklearn.preprocessing import OneHotEncoder
 
 from llm_clients import get_llm
 from llm_clients.utils import get_model_token
-from .cf_explainer import BaseExplainer
-from optbinning import Scorecard
-from .utils_explainers import prepare_output, apply_rules_llm
-from .scorecard_one_hot import prepare_data_bin
-# from llama_cpp import Llama
-import time
-from .metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
-                           LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
-import re
-import json
-import pandas as pd
 from .adapters import LlmAdapter
+from .cf_explainer import BaseExplainer
+from .utils_explainers import prepare_output, apply_rules_llm
 
 NAME = "llm-global"
 
 
 class LlmGlobalExplainer(BaseExplainer):
     def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
-                 dataset_name, output_dir, **kwargs):
+                 dataset_name, **kwargs):
         self.model = model
         self.df_train = df_train
         self.features = features
@@ -29,7 +27,6 @@ class LlmGlobalExplainer(BaseExplainer):
         self.act_features = act_features
         self.target = target
         self.dataset_name = dataset_name
-        self.output_dir = output_dir
 
         # prepare data
         # self.model_bin, X_bins, self.binning_process, y = prepare_data_bin(self.df_train, self.features, self.target, self.model)
@@ -53,9 +50,9 @@ class LlmGlobalExplainer(BaseExplainer):
         prompt = ""
         max_tokens = 0
         if self.dataset_name == "german-credit":
-            from prompts import GERMAN_CREDIT_RULES_PROMPT
+            from .prompts import GERMAN_CREDIT_RULES_PROMPT
             prompt = GERMAN_CREDIT_RULES_PROMPT
-            max_tokens = 200
+            max_tokens = 1024
         elif dataset_name == "german-credit-crif-mt":
             from .prompts import GERMAN_CREDIT_CRIF_RULES_PROMPT
             prompt = GERMAN_CREDIT_CRIF_RULES_PROMPT
@@ -98,18 +95,9 @@ class LlmGlobalExplainer(BaseExplainer):
         # end timer to measure training efficiency
         end = time.perf_counter()
 
-        # compute metrics
-        # name = self.dataset_name + "_" + NAME
-        factuals = self.df_train[self.model.predict(self.df_train[self.features]) == 0]
-        training_efficiency = end - start
-        _, _ = compute_metrics_global(self.df_train, factuals, self.features, cat_features, num_features, self.target,
-                                      self.model, self._explain, self.binning_process, training_efficiency, self.output_dir, write=True)
-
-        # compute metrics auc
+        self.training_efficiency = end - start
         OHE = OneHotEncoder(sparse_output=False, drop=None).fit(X_bins)
-        adapter = LlmAdapter(factuals[self.features], self.rules, self.binning_process, OHE)
-        # _, _, _, _, _, _, _, _, _ = compute_metrics_auc_global(adapter, LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K,
-        #                                 UPPER_LIMIT_RANGE_FOR_D, self.output_dir, None, plot=True, write=True)
+        self.adapter = LlmAdapter(None, self.rules, self.binning_process, OHE)
 
     def _explain(self, test_item, n_cf=1):
         # unpack test item

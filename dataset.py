@@ -76,10 +76,10 @@ class Dataset:
         self.features = features
         self.target = target
         self.act_features = act_features
-        self.demo_features = demo_features if demo_features is not None else []
-        self.monotonic_features = monotonic_features if monotonic_features is not None else {}
+        self.demo_features = demo_features or []
+        self.monotonic_features = monotonic_features or {}
         self.ordinal_features = ordinal_features or []
-        self.feature_costs = feature_costs if feature_costs is not None else {}
+        self.feature_costs = feature_costs or {}
         self.id = id
         self.threshold_pos = threshold_pos
         self.binning_fit_params = binning_fit_params  # None is the default argument for BinningProcess
@@ -233,37 +233,6 @@ class GermanCreditDataset(Dataset):
         self.test_data[self.target] = 1 - self.test_data[self.target]
 
 
-class GermanCreditCRIFFullDataset(Dataset):
-
-    _conf_path = "data/german_credit_crif_full_config.json"
-
-    def __init__(self, random_state=None):
-        with open(self._conf_path, 'r') as f:
-            config = json.load(f)
-        config = _binning_fit_params_wildcard(config)
-        config = _load_user_splits(config)
-        super().__init__(random_state=random_state, **config)
-
-    def _read_from_file(self):
-        data = pd.read_excel(self.data_path)
-        return data, None, None
-
-    def _prepare_data(self, data=None, train_data=None, test_data=None):
-        # rename column with typo
-        # self.train_data = self.train_data.rename(columns={"installment_rate": "installment.rate"})
-        # self.test_data = self.test_data.rename(columns={"installment_rate": "installment.rate"})
-        if data is not None:
-            data = data.rename(columns={"installment_rate": "installment.rate"})
-        else:
-            train_data = train_data.rename(columns={"installment_rate": "installment.rate"})
-            test_data = test_data.rename(columns={"installment_rate": "installment.rate"})
-        super()._prepare_data(data, train_data, test_data)
-        # invert target
-        self.train_data[self.target] = 1 - self.train_data[self.target]
-        self.test_data[self.target] = 1 - self.test_data[self.target]
-        return
-
-
 def _binning_fit_params_wildcard(config):
     """
     If the dictionary for "binning_fit_params" contains the "*" wildcard, such as::
@@ -325,38 +294,6 @@ def _load_user_splits(config):
     return config
 
 
-class GermanCreditCRIFDataset(Dataset):
-
-    _conf_path = "data/german_credit_crif_config.json"
-
-    def __init__(self, conf_path=None, random_state=None):
-        if conf_path is not None:
-            self._conf_path = conf_path
-        with open(self._conf_path, 'r') as f:
-            config = json.load(f)
-        config = _binning_fit_params_wildcard(config)
-        config = _load_user_splits(config)
-        super().__init__(random_state=random_state, **config,
-                         ordinal_features=['savings.account.and.bonds', 'property', 'present.employment.since',
-                                           'housing', 'other.installment.plans']
-                         )
-
-    def _read_from_file(self):
-        data = pd.read_excel(self.data_path)
-        return data, None, None
-
-    def _prepare_data(self, data=None, train_data=None, test_data=None):
-        super()._prepare_data(data, train_data, test_data)
-        # invert target
-        self.train_data[self.target] = 1 - self.train_data[self.target]
-        self.test_data[self.target] = 1 - self.test_data[self.target]
-        return
-
-
-class GermanCreditCRIFMonotonicDataset(GermanCreditCRIFDataset):
-    _conf_path = "data/german_credit_crif_mt_config.json"
-
-
 class AdultIncomeDataset(Dataset):
 
     _all_features = [
@@ -396,34 +333,6 @@ class LendingClubDataset(Dataset):
         config = _binning_fit_params_wildcard(config)
         config = _load_user_splits(config)
         super().__init__(random_state=random_state, **config)
-
-
-class LendingClub2Dataset(LendingClubDataset):
-    _conf_file = "data/lending_club_2_config.json"
-
-
-class LendingClub2MonotonicDataset(LendingClubDataset):
-    _conf_file = "data/lending_club_2_mt_config.json"
-
-
-class LendingClub3Dataset(LendingClubDataset):
-    _conf_file = "data/lending_club_3_config.json"
-
-
-class HELOCDataset(Dataset):
-    def __init__(self, random_state=None):
-        with open("data/heloc_config.json", 'r') as f:
-            config = json.load(f)
-        config = _binning_fit_params_wildcard(config)
-        config = _load_user_splits(config)
-        super().__init__(random_state=random_state, **config)
-
-    def _read_from_file(self):
-        data = pd.read_csv(self.data_path)
-        data[self.target] = (data[self.target].values == 'Good').astype(int)  # convert target to binary
-        # drop special codes
-        data = data[~data.isin([-7, -8, -9]).any(axis=1)]
-        return data, None, None
 
 
 class CompasDataset(Dataset):
@@ -467,15 +376,11 @@ class CompasDataset(Dataset):
 def get_dataset(dataset_name: str, **kwargs):
     datasets = {
         'german-credit': GermanCreditDataset,
-        'german-credit-crif-full': GermanCreditCRIFFullDataset,
-        'german-credit-crif': GermanCreditCRIFDataset,
-        'german-credit-crif-mt': GermanCreditCRIFMonotonicDataset,
         'adult': AdultIncomeDataset,
         'lending-club': LendingClubDataset,
         'lending-club-2': LendingClub2Dataset,
         'lending-club-2-mt': LendingClub2MonotonicDataset,
         'lending-club-3': LendingClub3Dataset,
-        'heloc': HELOCDataset,
         'compas': CompasDataset
     }
     if dataset_name in datasets:

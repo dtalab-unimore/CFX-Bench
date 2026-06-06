@@ -4,41 +4,9 @@ import numpy as np
 import pandas as pd
 from optbinning import BinningProcess
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.preprocessing import RobustScaler, MinMaxScaler, QuantileTransformer, OneHotEncoder, OrdinalEncoder
 from sklearn.utils.validation import check_is_fitted
 
 from utils import get_binning_maps
-
-
-class _ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
-
-    def __init__(self, estimator, binning_process: BinningProcess):
-        self.estimator = deepcopy(estimator)  # already fitted scorecard model
-        self.binning_process = deepcopy(binning_process)  # already fitted binning process
-        self.is_fitted_ = False
-
-    def fit(self, X=None, y=None):
-        check_is_fitted(self.estimator)
-        self.woe_map_, _ = get_binning_maps(self.binning_process)
-        self.feature_names_in_ = self.estimator.feature_names_in_
-        self.binning_process_ = self.binning_process
-        self.estimator_ = self.estimator
-        self.is_fitted_ = True
-        return self
-
-    def predict_proba(self, X):
-        check_is_fitted(self)
-        if isinstance(X, np.ndarray):  # assume two-dimensional array
-            X = pd.DataFrame(X, columns=self.feature_names_in_)
-        X_woe = X.replace(self.woe_map_)
-        return self.estimator_.predict_proba(X_woe)
-
-    def predict(self, X):
-        check_is_fitted(self)
-        if isinstance(X, np.ndarray):  # assume two-dimensional array
-            X = pd.DataFrame(X, columns=self.feature_names_in_)
-        X_woe = X.replace(self.woe_map_)
-        return self.estimator_.predict(X_woe)
 
 
 class ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
@@ -91,12 +59,6 @@ class ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
         if self.transform_type in ['woe', 'id']:
             X = self.transform(X)
 
-        if 'catboost' in str(type(self.estimator)).lower():
-            if 'eval_set' in self.estimator_fit_kwargs_:
-                X_val, y_val = self.estimator_fit_kwargs_['eval_set']
-                X_val = self.transform(X_val)
-                self.estimator_fit_kwargs_['eval_set'] = (X_val, y_val)
-
         self.estimator.fit(X, y, **self.estimator_fit_kwargs_)
         self.binning_process_ = self.binning_process
         self.estimator_ = self.estimator
@@ -116,73 +78,6 @@ class ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
             X = pd.DataFrame(X, columns=self.feature_names_in_)
         X = self.transform(X)
         return self.estimator_.predict(X)
-
-
-class ClassifierForMixedData(ClassifierMixin, BaseEstimator):
-
-    def __init__(self, estimator, binning_process_: BinningProcess, cat_columns, num_columns):
-        self.estimator = deepcopy(estimator)
-        self.binning_process = deepcopy(binning_process_)
-        # self.scaler = MinMaxScaler()
-        self.scaler = QuantileTransformer(n_quantiles=100)
-        self.cat_columns = cat_columns
-        self.num_columns = num_columns
-        self.is_fitted_ = False
-
-    def transform(self, X):
-        X = X.copy()
-        X.loc[:, self.cat_columns] = X.loc[:, self.cat_columns].replace(self.woe_map_)
-        X.loc[:, self.num_columns] = self.scaler_.transform(X.loc[:, self.num_columns])
-        return X.astype(float)
-
-    def fit(self, X: pd.DataFrame, y):
-        self.woe_map_, _ = get_binning_maps(self.binning_process)
-        X_num = X[self.num_columns]
-        self.scaler_ = self.scaler.fit(X_num)
-        X = self.transform(X)
-        self.estimator_ = self.estimator.fit(X, y)
-        self.binning_process_ = self.binning_process
-        self.feature_names_in_ = self.estimator.feature_names_in_
-        self.is_fitted_ = True
-        return self
-
-    def predict_proba(self, X):
-        check_is_fitted(self)
-        if isinstance(X, np.ndarray):
-            X = pd.DataFrame(X, columns=self.feature_names_in_)
-        X = self.transform(X)
-        return self.estimator_.predict_proba(X)
-
-    def predict(self, X):
-        check_is_fitted(self)
-        if isinstance(X, np.ndarray):
-            X = pd.DataFrame(X, columns=self.feature_names_in_)
-        X = self.transform(X)
-        return self.estimator_.predict(X)
-
-
-class ClassifierForMixedDataV2(ClassifierForMixedData):
-
-    def __init__(self, estimator, binning_process_: BinningProcess, cat_columns, num_columns, ord_columns):
-        super().__init__(estimator, binning_process_, ord_columns, num_columns)
-        # for compatibility with superclass:
-        # - super.cat_columns are ordinal features
-        # - self.ohe_columns are categorical features
-        self.ohe_columns = cat_columns
-
-    def transform(self, X: pd.DataFrame):
-        X = X.copy()
-        X_num_cat = super().transform(X[self.num_columns + self.cat_columns])
-        X_oh = self.OHE_.transform(X[self.ohe_columns])
-        X_oh = pd.DataFrame(X_oh, columns=self.OHE_.get_feature_names_out(), index=X.index)
-        X_ = [X_num_cat, X_oh]
-        X = pd.concat(X_, axis=1)
-        return X.astype(float)
-
-    def fit(self, X: pd.DataFrame, y):
-        self.OHE_ = OneHotEncoder(sparse_output=False, drop='if_binary').fit(X[self.ohe_columns])
-        super().fit(X, y)
-        return self
 
 
 class OneHotDataClassifierAdapter(ClassifierMixin, BaseEstimator):
@@ -240,60 +135,3 @@ class OneHotDataClassifierAdapter(ClassifierMixin, BaseEstimator):
 
     def predict(self, X):
         return np.argmax(self.predict_proba(X), axis=1)
-
-
-class UniversalProbabilityRescaler(BaseEstimator, ClassifierMixin):
-    """
-    Un wrapper universale che applica lo shift logistico alle probabilità
-    di QUALSIASI classificatore pre-addestrato per spostare la soglia operativa.
-    """
-
-    def __init__(self, estimator, threshold=0.5):
-        self.estimator = estimator
-        self.threshold = threshold
-
-    def fit(self, X, y=None):
-        # Il modello interno DEVE essere già addestrato
-        check_is_fitted(self.estimator)
-        self.threshold_ = self.threshold
-
-        if hasattr(self.estimator, 'classes_'):
-            self.classes_ = self.estimator.classes_
-
-        return self
-
-    def _warp_logistic(self, prob, thr):
-        """Trasformazione logistica valida per qualsiasi array di probabilità"""
-        prob = np.asarray(prob)
-        # Formula veloce ed efficiente che evita np.log e np.exp
-        numerator = prob * (1.0 - thr)
-        denominator = numerator + (1.0 - prob) * thr
-
-        warped_prob = np.divide(numerator, denominator,
-                                out=np.zeros_like(numerator),
-                                where=(denominator != 0))
-
-        warped_prob[(prob == 1.0) & (thr == 1.0)] = 1.0
-        return warped_prob
-
-    def predict_proba(self, X):
-        check_is_fitted(self)
-
-        # 1. Ottiene le probabilità "grezze" dal modello complesso (es. CatBoost)
-        original_probs = self.estimator.predict_proba(X)
-        pos_probs = original_probs[:, 1]
-
-        # 2. Applica la "deformazione" matematica
-        warped_pos_probs = self._warp_logistic(pos_probs, self.threshold_)
-
-        warped_pos_probs = np.clip(warped_pos_probs, 0.0, 1.0)
-        return np.vstack([1.0 - warped_pos_probs, warped_pos_probs]).T
-
-    def predict(self, X):
-        check_is_fitted(self)
-        warped_probs = self.predict_proba(X)
-        return self.classes_[np.argmax(warped_probs, axis=1)]
-
-    def __getattr__(self, name):
-        """Delega gli attributi al modello interno (es. feature_importances_)"""
-        return getattr(self.estimator, name)

@@ -12,7 +12,7 @@ from utils import OrdinalBinsEncoder
 
 class ExplSetEvaluator:
     def __init__(self, model, X_train, X_test, cat_features, ord_features, num_features, act_features,
-                 monotonic_features, mixed=False, binning_process=None):
+                 monotonic_features, binning_process=None):
         self.model = model
         # self.cat_features = cat_features
         # self.ord_features = ord_features
@@ -21,7 +21,6 @@ class ExplSetEvaluator:
         self.monotonic_features = monotonic_features
         self.X_train: pd.DataFrame = X_train
         self.X_test: pd.DataFrame = X_test
-        self.mixed = mixed
         self.features = self.X_train.columns
 
         self.N_features = len(self.features)
@@ -29,27 +28,19 @@ class ExplSetEvaluator:
         self.y_pred = self.model.predict(X_test)
         self.X_train_, self.X_test_ = self.X_train, self.X_test  # keep original dataframe
 
-        if self.mixed:
-            ...  # todo
-            # In mixed mode the 'mh' family is MAD-cityblock + Hamming, so the
-            # continuous metric is built from MAD on training data (see below).
-            self._mh_cont_metric_kind = 'mad'
-        else:  # binned
-            # self.cat_features, self.num_features = [], []
-            # self.ord_features = self.features
-            # Use numerical distances on ordinal bins
-            self.cat_features, self.ord_features = [], []
-            self.num_features = list(range(len(self.features)))
-            self.ratio_cont = 1.0
-            if binning_process is None:
-                raise ValueError("Binning process must be provided for binned evaluation.")
-            else:
-                self.binning_process = binning_process
+        # Use numerical distances on ordinal bins
+        self.cat_features = []
+        self.num_features = list(range(len(self.features)))
+        self.ratio_cont = 1.0
+        if binning_process is None:
+            raise ValueError("Binning process must be provided for binned evaluation.")
+        else:
+            self.binning_process = binning_process
 
-            self.prep = OrdinalBinsEncoder(self.features, self.monotonic_features, self.binning_process)
+        self.prep = OrdinalBinsEncoder(self.features, self.monotonic_features, self.binning_process)
 
-            # In binned mode the 'mh' family is plain Cityblock + Hamming.
-            self._mh_cont_metric_kind = 'cityblock'
+        # In binned mode the 'mh' family is plain Cityblock + Hamming.
+        self._mh_cont_metric_kind = 'cityblock'
 
         self.prep.fit(self.X_train)
         self.X_train = self.prep.transform(self.X_train)

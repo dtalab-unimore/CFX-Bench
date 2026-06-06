@@ -1,0 +1,31 @@
+{
+    "data_path": "data/lending_club/lending.csv",
+    "test_split": 0.3,
+    "test_sample": 500,
+    "id": null,
+    "features": [
+        "emp_length", "annual_inc", "open_acc", "credit_years",
+        "grade", "home_ownership", "purpose", "addr_state"
+    ],
+    "target": "loan_status",
+    "act_features": [
+        "emp_length", "annual_inc", "credit_years"
+    ],
+    "threshold_pos": 0.5,
+    "binning_fit_params": {
+        "*": {
+            "monotonic_trend": "auto_asc_desc",
+            "max_n_bins": null
+        }
+    },
+    "monotonic_features": {
+        "annual_inc": "num_asc",
+        "emp_length": "num_asc",
+        "credit_years": "num_asc"
+    },
+    "feature_costs": {
+        "annual_inc": 1,
+        "emp_length": 3,
+        "credit_years": 5
+    }
+}

@@ -1,0 +1,22 @@
+{
+  "account_check_status": "Balance of the applicant's checking account at the time of application.",
+  "duration_in_month": "Loan parameter: duration of the requested credit / repayment term, expressed in months.",
+  "credit_history": "Applicant's prior credit-repayment record, encoding the standing and timeliness of any previous credit obligations.",
+  "purpose": "Stated reason the credit is being requested (e.g. car, household goods, education, business, etc.).",
+  "credit_amount": "Loan parameter: principal amount of credit requested.",
+  "savings": "Balance of the applicant's savings account or bonds.",
+  "present_emp_since": "Length of time the applicant has held their current job.",
+  "installment_as_income_perc": "Installment rate as a percentage of the applicant's disposable income.",
+  "personal_status_sex": "Combined marital status and sex of the applicant.",
+  "other_debtors": "Whether a third party is jointly responsible for the loan: 'none', 'co-applicant', or 'guarantor'.",
+  "present_res_since": "Length of time the applicant has lived at their current address.",
+  "property": "Most valuable type of property the applicant owns.",
+  "age": "Age of the applicant, in years.",
+  "other_installment_plans": "Other installment-plan credit obligations the applicant holds outside this loan: 'bank', 'stores', or 'none'.",
+  "housing": "Applicant's current housing situation: 'own', 'rent', or 'for free' (rent-free, e.g. with family or employer-provided).",
+  "credits_this_bank": "Number of existing credits the applicant currently holds at this bank, including the one being applied for.",
+  "job": "Type and qualification level of the applicant's employment, ranging from unemployed/unskilled to management/highly qualified.",
+  "people_under_maintenance": "Number of people the applicant is financially liable to provide maintenance for (dependants).",
+  "telephone": "Whether a telephone is registered under the applicant's name at their address.",
+  "foreign_worker": "Whether the applicant is a foreign worker."
+}

@@ -1,26 +1,25 @@
-
-COLUMN_VALUES_LOCAL_PROMPT_GERMAN_CREDIT = (
-                  "Column names and allowed values:\n" +
-                  "- checking_account: ['< 0 DM' '0-200 DM' 'no checking account' '>= 200 DM']\n" +
-                  "- duration: 4 - 72\n" +
-                  "- credit_history: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
-                  "- purpose: ['radio/television' 'education' 'furniture/equipment' 'car (new)' 'car (used)' 'business' 'domestic appliances' 'repairs' 'others' 'retraining']\n" +
-                  "- credit_amount: 250 - 18424\n" +
-                  "- savings_account: ['unknown/no savings account' '< 100 DM' '500-1000 DM' '>= 1000 DM' '100-500 DM']\n" +
-                  "- employment: ['>= 7 years' '1-4 years' '4-7 years' 'unemployed' '< 1 year']\n" +
-                  "- installment_rate: 1 - 4\n" +
-                  "- personal_status_sex: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
-                  "- guarantors: ['none' 'guarantor' 'co-applicant']\n" +
-                  "- residence_duration: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
-                  "- property: ['real estate' 'building society savings/life insurance' 'unknown/no property' 'car or other']\n" +
-                  "- age: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
-                  "- other_installment_plans: ['none' 'bank' 'stores']\n" + "- housing: ['own' 'for free' 'rent']\n" +
-                  "- existing_credits: 1 - 4\n" +
-                  "- job: ['skilled employee/official' 'unskilled resident' 'management/self-employed/highly qualified' 'unemployed/unskilled non-resident']\n" +
-                  "- people_liable: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
-                  "- telephone: ['yes' 'none']\n"
-                  "- foreign_worker: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n\n"
-)
+# COLUMN_VALUES_LOCAL_PROMPT_GERMAN_CREDIT = (
+#                   "Column names and allowed values:\n" +
+#                   "- checking_account: ['< 0 DM' '0-200 DM' 'no checking account' '>= 200 DM']\n" +
+#                   "- duration: 4 - 72\n" +
+#                   "- credit_history: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
+#                   "- purpose: ['radio/television' 'education' 'furniture/equipment' 'car (new)' 'car (used)' 'business' 'domestic appliances' 'repairs' 'others' 'retraining']\n" +
+#                   "- credit_amount: 250 - 18424\n" +
+#                   "- savings_account: ['unknown/no savings account' '< 100 DM' '500-1000 DM' '>= 1000 DM' '100-500 DM']\n" +
+#                   "- employment: ['>= 7 years' '1-4 years' '4-7 years' 'unemployed' '< 1 year']\n" +
+#                   "- installment_rate: 1 - 4\n" +
+#                   "- personal_status_sex: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
+#                   "- guarantors: ['none' 'guarantor' 'co-applicant']\n" +
+#                   "- residence_duration: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
+#                   "- property: ['real estate' 'building society savings/life insurance' 'unknown/no property' 'car or other']\n" +
+#                   "- age: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
+#                   "- other_installment_plans: ['none' 'bank' 'stores']\n" + "- housing: ['own' 'for free' 'rent']\n" +
+#                   "- existing_credits: 1 - 4\n" +
+#                   "- job: ['skilled employee/official' 'unskilled resident' 'management/self-employed/highly qualified' 'unemployed/unskilled non-resident']\n" +
+#                   "- people_liable: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n" +
+#                   "- telephone: ['yes' 'none']\n"
+#                   "- foreign_worker: IMMUTABLE FEATURE, USE THE EXISTING VALUE\n\n"
+# )
 
 COLUMN_VALUES_LOCAL_PROMPT_LENDING = (
                   "Column names and allowed values:\n" +
@@ -61,25 +60,22 @@ COLUMN_VALUES_LOCAL_PROMPT_ADULT = (
 
 COLUMN_VALUES_RULES_PROMPT_GERMAN_CREDIT = (
                   "Column names and allowed values:\n" +
-                  "- checking_account: ['< 0 DM' '0-200 DM' 'no checking account' '>= 200 DM']\n" +
-                  "- duration: 4 - 72\n" +
+                  "- account_check_status: ['no checking account' '< 0 DM' '0 <= ... < 200 DM' '>= 200 DM / salary assignments for at least 1 year']\n" +
+                  "- duration_in_month: 4 - 72\n" +
                   "- credit_history: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
-                  "- purpose: ['radio/television' 'education' 'furniture/equipment' 'car (new)' 'car (used)' 'business' 'domestic appliances' 'repairs' 'others' 'retraining']\n" +
+                  "- purpose: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
                   "- credit_amount: 250 - 18424\n" +
-                  "- savings_account: ['unknown/no savings account' '< 100 DM' '500-1000 DM' '>= 1000 DM' '100-500 DM']\n" +
-                  "- employment: ['>= 7 years' '1-4 years' '4-7 years' 'unemployed' '< 1 year']\n" +
-                  "- installment_rate: 1 - 4\n" +
-                  "- personal_status_sex: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
-                  "- guarantors: ['none' 'guarantor' 'co-applicant']\n" +
-                  "- residence_duration: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
-                  "- property: ['real estate' 'building society savings/life insurance' 'unknown/no property' 'car or other']\n" +
-                  "- other_installment_plans: ['none' 'bank' 'stores']\n" + "- housing: ['own' 'for free' 'rent']\n" +
-                  "- existing_credits: 1 - 4\n" +
-                  "- job: ['skilled employee/official' 'unskilled resident' 'management/self-employed/highly qualified' 'unemployed/unskilled non-resident']\n" +
-                  "- people_liable: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
-                  "- telephone: ['yes' 'none']\n"
+                  "- savings: ['unknown/ no savings account' '... < 100 DM' '100 <= ... < 500 DM' '500 <= ... < 1000 DM' '... >= 1000 DM']\n" +
+                  "- present_emp_since: ['unemployed' '... < 1 year' '1 <= ... < 4 years' '4 <= ... < 7 years' '... >= 7 years']\n" +
+                  "- other_debtors: ['co-applicant' 'none' 'guarantor']\n" +
+                  "- property: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
+                  "- age: 19 - 75\n" +
+                  "- housing: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
+                  "- other_installment_plans: ['none' 'bank' 'stores']\n" +
+                  "- credits_this_bank: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n" +
                   "- foreign_worker: IMMUTABLE FEATURE, DON'T INCLUDE IN THE RULES\n\n"
 )
+COLUMN_VALUES_LOCAL_PROMPT_GERMAN_CREDIT = COLUMN_VALUES_RULES_PROMPT_GERMAN_CREDIT
 
 COLUMN_VALUES_RULES_PROMPT_LENDING = (
                   "Column names and allowed values:\n" +

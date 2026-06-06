@@ -22,11 +22,11 @@ def get_model_token(model_name: str):
     return token
 
 
-def verbalize_explanations(cf_df, llm, data_key, use_cache):
+def verbalize_explanations(cf_df, llm, output_dir, use_cache):
     prompt_manager = CFVerbalizePromptManager()
-    cache_dir = os.path.join('..', 'verbalization_cache')
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_file = os.path.join(cache_dir, f'{data_key}.csv')
+    # cache_dir = os.path.join('..', 'verbalization_cache')
+    # os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(output_dir, 'verbalization_cache.csv')
 
     if use_cache and os.path.exists(cache_file):
         print("Loaded counterfactual verbalization from the cache.")
@@ -34,6 +34,9 @@ def verbalize_explanations(cf_df, llm, data_key, use_cache):
 
     verbalized = []
     for ix, cf_item in tqdm(cf_df.iterrows(), total=len(cf_df)):
+        if len(cf_item['list_cf']) == 0:
+            verbalized.append("")
+            continue
         cf = cf_item['list_cf'][0]
         del cf_item['list_cf']
         cf_item['cf'] = cf
@@ -42,7 +45,9 @@ def verbalize_explanations(cf_df, llm, data_key, use_cache):
         cf_json = cf_item.copy()
         ignore_attrs = ['id', 'category', 'label', 'target']
         for attr in ignore_attrs:
-            del cf_json[attr]
+            if attr in cf_json:
+                del cf_json[attr]
+        del cf_json['cf']['cost']
         cf_json = cf_json.to_json(indent=4)
         prompt = prompt_manager.get_user_prompt_content(cf_json)
 
@@ -54,7 +59,7 @@ def verbalize_explanations(cf_df, llm, data_key, use_cache):
 
         # Parse the response
         verbalized_cf = prompt_manager.parse_response(response)
-        if cf_item['pred'] == 1:
+        if cf_item['pred'] == 0:
             assert "Current outcome: your loan application was rejected" in verbalized_cf
         else:
             assert "Current outcome: your loan application was approved" in verbalized_cf
@@ -142,16 +147,24 @@ def main():
 
     random.seed(args.seed)
     np.random.seed(args.seed)
-    data_key = args.cf_file.split(os.path.sep)[-1].replace('.json', '')
-    if data_key.startswith('SELECTED_CF_'):
-        data_key = data_key.replace('SELECTED_CF_', '')
-    if data_key.startswith('CF_'):
-        data_key = data_key.replace('CF_', '')
+    # data_key = args.cf_file.split(os.path.sep)[-1].replace('.json', '')
+    # if data_key.startswith('SELECTED_CF_'):
+    #     data_key = data_key.replace('SELECTED_CF_', '')
+    # if data_key.startswith('CF_'):
+    #     data_key = data_key.replace('CF_', '')
+    # "output/german-credit-crif-mt/optbin/lr__auto-refuse__s42/CF.json"
+    output_dir = os.path.dirname(args.cf_file)
+
+    llm_name = {
+        'llama-3.1-8b': 'meta-llama/Llama-3.1-8B-Instruct',
+        'qwen': 'Qwen2.5-14B-Instruct',
+        'mistral': 'Mistral-Small-3.2-24B-Instruct-2506'
+    }.get(args.llm, args.llm)
 
     # Load the LLM
-    token = get_model_token(args.llm)
+    token = get_model_token(llm_name)
     llm = get_llm(
-        model_name=args.llm,
+        model_name=llm_name,
         token=token,
         seed=args.seed
     )
@@ -160,16 +173,17 @@ def main():
     cf_df = pd.read_json(args.cf_file)
     if 'id' not in cf_df.columns:
         cf_df['id'] = range(1, len(cf_df) + 1)
+    # cf_df = cf_df.iloc[:2]  # debug
 
     # Verbalize the explanations
-    verbalized_cf = verbalize_explanations(cf_df, llm, data_key, args.use_cache)
+    verbalized_cf = verbalize_explanations(cf_df, llm, output_dir, args.use_cache)
 
     # Evaluate the quality of the explanations
     out_cf = evaluate_explanations(verbalized_cf, llm, args.prompt_style)
 
     # Save the results
-    out_file = f'LLM_metrics__{args.llm}__{args.prompt_style}__{data_key}.json'
-    out_cf.to_json(os.path.join('..', 'output', out_file), indent=4, orient='records')
+    out_file = f'LLM_metrics__{args.llm}__{args.prompt_style}.json'
+    out_cf.to_json(os.path.join(output_dir, out_file), indent=4, orient='records')
 
 
 if __name__ == '__main__':

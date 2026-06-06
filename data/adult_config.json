@@ -1,0 +1,39 @@
+{
+    "train_path": "data/adult/adult.data",
+    "test_path": "data/adult/adult.test",
+    "test_sample": 500,
+    "id": null,
+    "features": [
+        "age", "workclass", "education", "marital-status", "occupation", "relationship", "race", "sex", "capital-gain",
+        "capital-loss", "hours-per-week", "native-country"
+    ],
+    "target": "income",
+    "act_features": [
+        "hours-per-week", "occupation", "workclass", "education", "age"
+    ],
+    "binning_fit_params": {
+        "*": {
+            "monotonic_trend": "auto_asc_desc",
+            "max_n_bins": 4,
+            "min_n_bins": 2
+        },
+        "education": {
+            "monotonic_trend": "auto",
+            "max_n_bins": null,
+            "user_splits": [
+                [" Preschool", " 1st-4th", " 5th-6th", " 7th-8th", " 9th", " 10th", " 11th", " 12th"],
+                [" HS-grad", " Some-college"],
+                [" Assoc-voc", " Assoc-acdm"],
+                [" Bachelors", " Masters", " Prof-school", " Doctorate"]
+            ],
+            "user_splits_fixed": [true, true, true, true]
+        },
+        "capital-loss": {
+            "min_prebin_size": 0.01
+        }
+    },
+    "monotonic_features": {
+        "age": "num_asc",
+        "education": "event_asc"
+    }
+}
