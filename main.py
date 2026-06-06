@@ -21,15 +21,13 @@ from explainers import get_cf_explainer
 from explainers.global_explainers.metrics_gcfes import compute_metrics_global, compute_metrics_auc_global, \
     LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K, UPPER_LIMIT_RANGE_FOR_D
 from test_case_generator import TestCaseGenerator
-from utils import get_binning_maps, OrdinalBinsEncoder, clean_numpy2_strings
-
+from utils import get_binning_maps, OrdinalBinsEncoder, clean_numpy2_strings, conf_to_str
 
 LOCAL_EXPLAINERS  = ['ar', 'dice', 'face', 'nice', 'optbin', 'proce']
 GLOBAL_EXPLAINERS = ['ares', 'globe-ce', 'facegroup', 'glance', 'llm-global', 'llm-local']
 
 
 def parse_args():
-    """ Parse arguments. """
     parser = argparse.ArgumentParser(
         description='Main script.',
         usage='main.py [<args>] [-h | --help]'
@@ -37,16 +35,12 @@ def parse_args():
 
     # Main params
     parser.add_argument('--dataset', type=str, choices=[
-        'german-credit', 'german-credit-crif', 'german-credit-crif-mt', 'german-credit-crif-full',
-        'lending-club', 'lending-club-2', 'lending-club-2-mt', 'lending-club-3',
-        'adult', 'compas',
+        'german-credit', 'lending-club', 'adult', 'compas'
     ])
     parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
     parser.add_argument('--test_case_sel_method', type=str, default='border',
                         choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
     parser.add_argument('--explainer_name', type=str, choices=(LOCAL_EXPLAINERS + GLOBAL_EXPLAINERS))
-    parser.add_argument('--tag', type=str, default='', help='Optional tag to append to the output directory name.')
-    parser.add_argument('--timestamp', action='store_true', help='Whether to append a timestamp to the output directory name. Ignored if --tag is provided.')
     parser.add_argument('--seed', type=int, default=42)
 
     # Explainer specific params
@@ -54,21 +48,6 @@ def parse_args():
     args = parser.parse_args()
 
     return args
-
-
-def conf_to_str(conf):
-    dataset = conf['dataset']
-    model = conf['model_name']
-    explainer = conf['explainer_name']
-    test_case = conf['test_case_sel_method']
-    seed = conf['seed']
-
-    if explainer == 'dice':
-        dice_solver = conf['dice_solver']
-        explainer = f'{explainer}/{dice_solver}'
-
-    conf_key = f'{dataset}/{explainer}/{model}__{test_case}__s{seed}'
-    return conf_key
 
 
 def set_seed(seed):
@@ -153,7 +132,6 @@ def main():
     feature_costs = dataset.get_feature_costs()
     test_sample = dataset.get_test_sample()
     binning_fit_params = dataset.get_binning_fit_params()
-    threshold_pos = dataset.get_threshold_pos()
 
     # === Pascal Case ===
     pascal_case_map = {f: to_pascal_case(f) for f in features}
@@ -168,18 +146,7 @@ def main():
     binning_fit_params = {pascal_case_map[f]: v for f, v in binning_fit_params.items()}
     # ======
 
-    output_dir = 'output'
-    if args.timestamp or args.tag:
-        output_dir = 'output2'
-    output_dir = os.path.join(output_dir, conf_to_str(conf))
-    if not np.isclose(threshold_pos, 0.5):
-        thr_str = "%.2f" % threshold_pos
-        output_dir += f"__thr{thr_str[1:]}"
-    if args.tag:
-        output_dir = os.path.join(output_dir, args.tag)
-    elif args.timestamp:
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        output_dir = os.path.join(output_dir, timestamp)
+    output_dir = os.path.join('output', conf_to_str(conf))
     os.makedirs(output_dir, exist_ok=True)
     print("Output directory:", output_dir)
     with open(os.path.join(output_dir, 'config.json'), 'w') as f:

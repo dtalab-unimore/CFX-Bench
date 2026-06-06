@@ -1,10 +1,10 @@
 import logging
-from typing import Dict, Optional, Tuple, List, Callable
+from typing import Dict, Optional, List, Callable
 
 import numpy as np
 import pandas as pd
+
 import recourse as rs
-from lime.lime_tabular import LimeTabularExplainer
 
 logger = logging.getLogger(__name__)
 
@@ -100,45 +100,6 @@ class ActionableRecourse:
 
         self._coeffs = coeffs
         self._intercepts = intercepts
-
-    def _get_lime_coefficients(
-            self, factuals: pd.DataFrame
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Uses LIME to extract local linear approximations of a non-linear model.
-        """
-        coeffs = np.zeros(factuals.shape)
-        intercepts = []
-
-        categorical_names = [
-            cat for cat in self.feature_names if cat not in self.continuous_features
-        ]
-
-        lime_exp = LimeTabularExplainer(
-            training_data=self.X_train[self.feature_names].values,
-            training_labels=self.y_train,
-            feature_names=self.feature_names,
-            discretize_continuous=self._discretize_continuous,
-            sample_around_instance=self._sample_around_instance,
-            categorical_names=categorical_names,
-            mode="classification"
-        )
-
-        for index, row in factuals.iterrows():
-            factual = row.values
-            explanations = lime_exp.explain_instance(
-                factual,
-                self.predict_proba,
-                num_features=len(self.feature_names),
-            )
-
-            # Use the target desired class for coefficients/intercepts
-            intercepts.append(explanations.intercept[self.y_desired])
-
-            for tpl in explanations.local_exp[self.y_desired]:
-                coeffs[index][tpl[0]] = tpl[1]
-
-        return coeffs, np.array(intercepts)
 
     def get_counterfactuals(self, factuals: pd.DataFrame) -> pd.DataFrame:
         """

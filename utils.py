@@ -177,3 +177,18 @@ def OHOrdinalBinsMixMaxEncoder(X_fit, cat_features, ord_features, num_features, 
 
     ft = FunctionTransformer(_transform, _inverse_transform, feature_names_out=(lambda a, b: feature_names_out))
     return ft
+
+
+def conf_to_str(conf):
+    dataset = conf['dataset']
+    model = conf['model_name']
+    explainer = conf['explainer_name']
+    test_case = conf['test_case_sel_method']
+    seed = conf['seed']
+
+    if explainer == 'dice':
+        dice_solver = conf['dice_solver']
+        explainer = f'{explainer}/{dice_solver}'
+
+    conf_key = f'{dataset}/{explainer}/{model}__{test_case}__s{seed}'
+    return conf_key

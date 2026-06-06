@@ -4,7 +4,6 @@ import pandas as pd
 
 
 def extract_params(file_name: str, base_output_dir='output/'):
-    # file_name = output/german-credit/llm-global/lr__auto-refuse__s42/LLM_metrics__gpt-4o-mini__base.json
     file_name = file_name.replace(base_output_dir, '').split(os.sep)
     if len(file_name) == 4:
         dataset, explainer, _, file_name = file_name
@@ -47,14 +46,6 @@ def compute_agg_metrics(metric_file: str):
 
 
 def main():
-    # parser = argparse.ArgumentParser(
-    #     description='Script for collecting quality scores provided by LLMs.',
-    #     usage='collect_llm_metrics.py [<args>] [-h | --help]'
-    # )
-    # parser.add_argument('--res_dir', type=str)
-    # args = parser.parse_args()
-
-    # res_files = [os.path.join(args.res_dir, x) for x in os.listdir(args.res_dir) if x.startswith('LLM_metrics_')]
     res_files = [
         f"output/german-credit/{explainer}/lr__auto-refuse__s42/LLM_metrics__gpt-4o-mini__base.json"
         for explainer in ['dice/random', 'nice', 'ares', 'llm-global']
@@ -67,20 +58,6 @@ def main():
     results = pd.DataFrame(results)
 
     results.to_csv('output/LLM_metrics.csv', index=False)
-
-    # overall_results = pd.pivot_table(
-    #     results[['overall', 'explainer', 'prompt_style']],
-    #     index=['prompt_style'], columns=['explainer'], values='overall'
-    # )
-    # properties = ['satisfaction', 'feasibility', 'consistency', 'completeness',
-    #               'trust', 'understandability', 'fairness', 'complexity']
-    # explainers = results['explainer'].unique()
-    # for explainer in explainers:
-    #     expl_results = results[results['explainer'] == explainer][properties]
-    #     a = []
-    #
-    #
-    # a = []
 
 
 if __name__ == '__main__':

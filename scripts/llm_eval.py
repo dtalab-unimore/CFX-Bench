@@ -10,6 +10,7 @@ from tqdm import tqdm
 from llm_clients import get_llm, get_model_source
 from llm_prompts.cf_eval_prompt import CFEvalPromptManager
 from llm_prompts.cf_verbalize_prompt import CFVerbalizePromptManager
+from utils import conf_to_str
 
 
 def get_model_token(model_name: str):
@@ -138,7 +139,18 @@ def main():
         description='Script for evaluating the quality of counter-factual explanations with an LLM-based approach.',
         usage='llm_eval.py [<args>] [-h | --help]'
     )
-    parser.add_argument('--cf_file', type=str)
+
+    parser.add_argument('--dataset', type=str, choices=[
+        'german-credit', 'lending-club', 'adult', 'compas'
+    ])
+    parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
+    parser.add_argument('--test_case_sel_method', type=str, default='border',
+                        choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
+    parser.add_argument('--explainer_name', type=str, choices=[
+        'ar', 'dice', 'face', 'nice', 'optbin', 'proce',
+        'ares', 'globe-ce', 'facegroup', 'glance', 'llm-global', 'llm-local'
+    ])
+
     parser.add_argument('--llm', type=str)
     parser.add_argument('--prompt_style', type=str, choices=['base', 'full', 'full-examples'])
     parser.add_argument('--use_cache', action='store_true')
@@ -147,7 +159,8 @@ def main():
 
     random.seed(args.seed)
     np.random.seed(args.seed)
-    output_dir = os.path.dirname(args.cf_file)
+    output_dir = os.path.join('output', conf_to_str(vars(args)))
+    cf_file = output_dir + "/CF.json"
 
     llm_name = {
         'llama-3.1-8b': 'meta-llama/Llama-3.1-8B-Instruct',
@@ -164,7 +177,7 @@ def main():
     )
 
     # Load the explanations
-    cf_df = pd.read_json(args.cf_file)
+    cf_df = pd.read_json(cf_file)
     if 'id' not in cf_df.columns:
         cf_df['id'] = range(1, len(cf_df) + 1)
     # cf_df = cf_df.iloc[:2]  # debug

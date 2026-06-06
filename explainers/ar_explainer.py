@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
 from aux_models import OneHotDataClassifierAdapter
-from explainers.actionable_recourse import ActionableRecourse
+from explainers.AR import ActionableRecourse
 from explainers.base import BaseExplainer, _empty_explanation_dict, prepare_output
 from recourse import ActionSet
 from utils import get_binning_maps
