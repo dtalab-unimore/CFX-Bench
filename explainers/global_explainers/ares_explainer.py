@@ -42,15 +42,9 @@ class AresExplainer(BaseExplainer):
         if self.dataset_name == "german-credit":
             apriori_threshold = 0.05
             constraints = [50, 3, 10]
-        elif self.dataset_name == "german-credit-crif-mt":
-            apriori_threshold = 0.1
-            constraints = [50, 3, 10]
         elif self.dataset_name == "lending":
             apriori_threshold = 0.01
             constraints = [30, 4, 4]
-        elif self.dataset_name == "lending-club-2-mt":
-            apriori_threshold = 0.1
-            constraints = [50, 3, 10]
         elif self.dataset_name == "compas":
             apriori_threshold = 0.04
             constraints = [15, 3, 6]

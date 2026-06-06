@@ -147,12 +147,6 @@ def main():
 
     random.seed(args.seed)
     np.random.seed(args.seed)
-    # data_key = args.cf_file.split(os.path.sep)[-1].replace('.json', '')
-    # if data_key.startswith('SELECTED_CF_'):
-    #     data_key = data_key.replace('SELECTED_CF_', '')
-    # if data_key.startswith('CF_'):
-    #     data_key = data_key.replace('CF_', '')
-    # "output/german-credit-crif-mt/optbin/lr__auto-refuse__s42/CF.json"
     output_dir = os.path.dirname(args.cf_file)
 
     llm_name = {

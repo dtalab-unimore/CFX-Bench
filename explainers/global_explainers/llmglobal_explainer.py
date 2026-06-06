@@ -1,6 +1,4 @@
 import json
-import re
-# from llama_cpp import Llama
 import time
 
 import pandas as pd
@@ -10,7 +8,7 @@ from sklearn.preprocessing import OneHotEncoder
 from llm_clients import get_llm
 from llm_clients.utils import get_model_token
 from .adapters import LlmAdapter
-from .cf_explainer import BaseExplainer
+from .cf_explainer import BaseExplainer, _empty_explanation_dict
 from .utils_explainers import prepare_output, apply_rules_llm
 
 NAME = "llm-global"
@@ -35,16 +33,6 @@ class LlmGlobalExplainer(BaseExplainer):
         # start timer to measure training efficiency
         start = time.perf_counter()
 
-        # define the LLM
-        # self.llm = Llama(
-        #     model_path="models/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        #     n_ctx=2048,
-        #     n_threads=8,
-        #     n_gpu_layers=0
-        # )
-        model_name = 'meta-llama/Llama-3.1-8B-Instruct'
-        self.llm = get_llm(model_name, get_model_token(model_name))
-
         # define the prompt to generate the rules
         # consider the correct prompt depending on the dataset
         prompt = ""
@@ -52,11 +40,7 @@ class LlmGlobalExplainer(BaseExplainer):
         if self.dataset_name == "german-credit":
             from .prompts import GERMAN_CREDIT_RULES_PROMPT
             prompt = GERMAN_CREDIT_RULES_PROMPT
-            max_tokens = 1024
-        elif dataset_name == "german-credit-crif-mt":
-            from .prompts import GERMAN_CREDIT_CRIF_RULES_PROMPT
-            prompt = GERMAN_CREDIT_CRIF_RULES_PROMPT
-            max_tokens = 1024
+            max_tokens = 2048
         elif self.dataset_name == "lending":
             from prompts import LENDING_RULES_PROMPT
             prompt = LENDING_RULES_PROMPT
@@ -70,21 +54,15 @@ class LlmGlobalExplainer(BaseExplainer):
             prompt = ADULT_RULES_PROMPT
             max_tokens = 400
 
-        # generate the rules
-        # output = self.llm(
-        #     prompt,
-        #     max_tokens=max_tokens,
-        #     temperature=0.0,
-        #     stop=["</s>"]
-        # )
-        # text = output["choices"][0]["text"]
+        # model_name = 'Meta-Llama-3.1-8B-Instruct'
+        model_name = 'gpt-4.1-mini'
+        self.llm = get_llm(model_name, get_model_token(model_name))
         text, tokens = self.llm.ask(
             [{'role': 'user', 'content': prompt}],
             max_response_length=max_tokens, temperature=0.2
         )
-        blocks = re.findall(r"\{.*?}", text, re.DOTALL)
-        self.rules = [json.loads(block) for block in blocks]
-        self.rules = [pd.Series(rule) for rule in self.rules]
+        ans = json.loads(text)
+        self.rules = [pd.Series(obj['changes']) for obj in ans]
         if self.dataset_name == "adult":
             for q, series in enumerate(self.rules):
                 for k, value in series.items():
@@ -107,4 +85,6 @@ class LlmGlobalExplainer(BaseExplainer):
         cfs = apply_rules_llm(record, self.rules, self.model)
 
         # prepare the output in the required format
+        if cfs is None:
+            return _empty_explanation_dict(test_item)
         return prepare_output(self.model, cfs[self.features], test_item)

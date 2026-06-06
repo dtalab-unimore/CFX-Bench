@@ -25,12 +25,10 @@ K = 50
 K_SELECTION_METHOD = "accross_all_ccs"
 CFE_SELECTION_METHOD = "greedy"
 ALG = "BINARY SEARCH"
-# GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex_['female : divorced/separated/married']"
-GROUP_IDENTIFIER_GERMAN_CREDIT = "ForeignWorker_['yes']"
+GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex_['female : divorced/separated/married']"
 GROUP_IDENTIFIER_LENDING = "home_ownership_['MORTGAGE']"
 GROUP_IDENTIFIER_COMPAS = "sex_['Female']"
 GROUP_IDENTIFIER_ADULT = "sex_[' Female']"
-GROUP_IDENTIFIER_GERMAN_CREDIT_CRIF = "foreign.worker_['yes']"
 
 
 class FaceGroupExplainer(BaseExplainer):
@@ -117,7 +115,6 @@ class FaceGroupExplainer(BaseExplainer):
             "lending": GROUP_IDENTIFIER_LENDING,
             "compas": GROUP_IDENTIFIER_COMPAS,
             "adult": GROUP_IDENTIFIER_ADULT,
-            "german-credit-crif-mt": GROUP_IDENTIFIER_GERMAN_CREDIT_CRIF,
         }.get(self.dataset_name, "")
         self.group_identifier = group_identifier
         group_identifier_value_normalized = get_normalized_group_identifier_value(

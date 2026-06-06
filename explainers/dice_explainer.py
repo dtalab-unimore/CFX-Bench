@@ -6,7 +6,6 @@ from optbinning import Scorecard
 from raiutils.exceptions import UserConfigValidationException
 
 from explainers.base import BaseExplainer, prepare_output, _empty_explanation_dict
-from utils import OrdinalBinsEncoder
 
 
 class _ModelWrapperClass:
@@ -34,16 +33,6 @@ class DiceExplainer(BaseExplainer):
     def _init(self):
         df_train = pd.concat([self.X_train, self.y_train.rename(self.target)], axis=1)
 
-        # # === ordinal bins encoding
-        # self.ordenc = OrdinalBinsEncoder(self.features, self.monotonic_features, self.model.binning_process_)
-        # X_train = self.ordenc.fit_transform(self.X_train)
-        # X_train = pd.DataFrame(X_train, columns=self.features)
-        # df_train = pd.concat([X_train, self.y_train.rename(self.target)], axis=1)
-        # self.num_features, self.cat_features = self.features, []
-        # self._model = deepcopy(self.model)
-        # self.model = _ModelWrapperClass(self._model, self.ordenc)
-        # # ===
-
         self._dice_data = dice_ml.Data(
             dataframe=df_train,
             continuous_features=self.num_features,
@@ -54,12 +43,6 @@ class DiceExplainer(BaseExplainer):
 
     def _explain(self, test_item, n_cf=1):
         record, label, pred, proba, target = test_item
-
-        # # === ordinal bins encoding
-        # record = self.ordenc.transform(record.to_frame().T)
-        # record = pd.DataFrame(record, columns=self.features)
-        # record = record.iloc[0]
-        # # ===
 
         features_to_vary = deepcopy(self.act_features)
         # --- monotonic bins
@@ -88,7 +71,6 @@ class DiceExplainer(BaseExplainer):
                 desired_class=target,
                 features_to_vary=features_to_vary,
                 permitted_range=permitted_range,
-                # proximity_weight=0 if self.method == 'genetic' else 0.2  # 0.2 is the default value
             )
         except UserConfigValidationException as e:
             # print exception message, then return default dictionary with no counterfactual
@@ -97,10 +79,7 @@ class DiceExplainer(BaseExplainer):
 
         cfs = cfs.cf_examples_list
         cfs = pd.concat([cf.final_cfs_df for cf in cfs], ignore_index=True)[self.features]
-        # cfs = cfs.astype(int)  # ordinal bins encoding
         list_new_probs = self.model.predict_proba(cfs)[:, 1]
-
-        # cfs = pd.DataFrame(self.ordenc.inverse_transform(cfs), columns=self.features)  # ordinal bins encoding
 
         expl_dict = prepare_output(*test_item, cfs, list_new_probs)
         return expl_dict

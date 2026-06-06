@@ -14,10 +14,22 @@ def get_llm(model_name, token=None, seed: int = 42, **kwargs):
         )
     elif model_source == 'hf':
         from llm_clients.hf_client import HuggingFaceClient
+        local_model_dir = ...
         llm = HuggingFaceClient(
             model_name=model_name,
             token=token,
             seed=seed,
+            local_model_dir=local_model_dir, local_files_only=True,
+            **kwargs
+        )
+    elif model_source == 'mistral':
+        from llm_clients.mistral_client import MistralClient
+        local_model_dir = ...
+        llm = MistralClient(
+            model_name=model_name,
+            token=token,
+            seed=seed,
+            local_model_dir=local_model_dir, local_files_only=True,
             **kwargs
         )
     else:

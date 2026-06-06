@@ -6,6 +6,8 @@ import dotenv
 def get_model_source(model_name):
     if 'gpt' in model_name.lower():
         return "gpt"
+    if 'mistral' in model_name.lower():
+        return "mistral"
     return "hf"
 
 

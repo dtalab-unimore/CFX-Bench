@@ -206,11 +206,11 @@ class Kernel:
                     bandwith = self.scotts_rule_bandwidth(data).mean()
             return bandwith
 
-        elif dataset_Name == "german-credit-crif-mt":
+        elif dataset_Name == "german-credit":
             bandwith = 0.08858667904100824
             return bandwith
 
-        elif dataset_Name == 'lending-club-2-mt':
+        elif dataset_Name == 'lending-club':
             bandwith = 0.08858667904100824
             return bandwith
 

@@ -249,7 +249,7 @@ def main():
     # Explanation
     test_case = TestCaseGenerator(
         sel_method=args.test_case_sel_method,
-        X_test=(X_test_orig if args.explainer_name in ['optbin'] else X_test),
+        X_test=(X_test_orig if args.explainer_name in ['optbin', 'llm-local'] else X_test),
         y_test=y_test,
         y_pred=y_pred,
         y_pos_proba=y_proba[:, 1],
@@ -380,7 +380,7 @@ def main():
         json.dump(global_stats.to_dict(), f, indent=4)
 
     if args.explainer_name in GLOBAL_EXPLAINERS:
-        _, _ = compute_metrics_global(
+        _ = compute_metrics_global(
             list_expl,
             features=features,
             cat_features=cat_features,

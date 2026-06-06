@@ -25,7 +25,6 @@ class GPTClient(LLMClient):
         kwargs = {}
         if self.model_name in ['gpt-5-mini']:
             kwargs['max_completion_tokens'] = max_response_length
-            ...
         elif self.model_name in ['gpt-4o-mini']:
             kwargs['max_tokens'] = max_response_length
             kwargs['temperature'] = temperature

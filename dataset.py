@@ -378,9 +378,6 @@ def get_dataset(dataset_name: str, **kwargs):
         'german-credit': GermanCreditDataset,
         'adult': AdultIncomeDataset,
         'lending-club': LendingClubDataset,
-        'lending-club-2': LendingClub2Dataset,
-        'lending-club-2-mt': LendingClub2MonotonicDataset,
-        'lending-club-3': LendingClub3Dataset,
         'compas': CompasDataset
     }
     if dataset_name in datasets:

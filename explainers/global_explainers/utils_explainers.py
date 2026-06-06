@@ -145,30 +145,26 @@ def apply_rules_llm(record, rules, model):
     from utils import clean_numpy2_strings
 
     cumulative_cfs, cumulative_cfs_final, cfs = record.copy(), [], []
-    flag, flag1 = False, False
     for rule in rules:
-        cfs = record.copy().to_frame().T
+        cf = record.copy().to_frame().T
         for col, value in rule.items():
             value = model.binning_process_.get_binned_variable(col).transform([value], metric='bins')
             value = clean_numpy2_strings(pd.Series(value, index=[col]))
             value = value.values[0]
+            if value == 'unknown':
+                value = record[col]
             if value != record[col]:
-                cfs[col] = value
+                cf[col] = value
             if value != cumulative_cfs[col]:
                 cumulative_cfs[col] = value
-        if model.predict(cfs)[0] == 1:
-            flag = True
-            break
-        if model.predict(cumulative_cfs.to_frame().T)[0] == 1 and not flag1:
-            cumulative_cfs_final = cumulative_cfs
-            flag1 = True
-    if flag:
-        cfs = cfs
-    else:
-        if len(cumulative_cfs_final) == 0:
-            cfs = cumulative_cfs
-        else:
-            cfs = cumulative_cfs_final
+        if model.predict(cf.to_frame().T)[0] == 1:
+            cfs.append(cf)
+        if model.predict(cumulative_cfs.to_frame().T)[0] == 1 and len(cumulative_cfs_final) == 0:
+            cumulative_cfs_final = cumulative_cfs.to_frame().T.copy()
+    if len(cfs) > 0:
+        cfs = pd.DataFrame(cfs)
+    elif len(cumulative_cfs_final) > 0:
+        cfs = cumulative_cfs_final
     return cfs
 
 
