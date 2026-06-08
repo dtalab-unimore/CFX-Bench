@@ -9,7 +9,7 @@ from sklearn.utils.validation import check_is_fitted
 from utils import get_binning_maps
 
 
-def get_classifier(name, params):
+def get_classifier(name, params=None):
     if name == 'lr':
         from sklearn.linear_model import LogisticRegression
         if params is None:

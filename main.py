@@ -149,8 +149,6 @@ def main():
     output_dir = os.path.join('output', conf_to_str(conf))
     os.makedirs(output_dir, exist_ok=True)
     print("Output directory:", output_dir)
-    with open(os.path.join(output_dir, 'config.json'), 'w') as f:
-        json.dump(dataset.get_config(), f, indent=4)
 
     estimator = get_classifier(args.model_name)
 
@@ -170,6 +168,7 @@ def main():
         X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
         if monotonic_features:
             resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
+            dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
     else:
         binning_process = BinningProcess(
             features,
@@ -185,17 +184,13 @@ def main():
 
         if monotonic_features:
             resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
+            dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
 
         classifier = ClassifierForBinnedData(
             estimator, binning_process, transform_type='woe'
         ).fit(X_train, y_train)
         with open(saved_model_path, 'wb') as f:
             pickle.dump(classifier, f)
-        with open(saved_models_dir + '/binning_fit_params.json', 'w') as f:
-            json.dump(binning_fit_params, f, indent=4)
-        if monotonic_features:
-            with open(saved_models_dir + '/monotonic_features.json', 'w') as f:
-                json.dump(monotonic_features, f, indent=4)
 
     num_features, cat_features = [], features
     # ===
@@ -207,7 +202,10 @@ def main():
     report['auc'] = roc_auc_score(y_test, y_proba[:, 1])
     report['r2'] = r2_score(y_test, y_proba[:, 1])
     print(json.dumps(report, indent=4))
-    with open(os.path.join(output_dir, 'classification_report.json'), 'w') as f:
+
+    with open(os.path.join('output', args.dataset, 'config.json'), 'w') as f:
+        json.dump(dataset.get_config(), f, indent=4)
+    with open(os.path.join('output', args.dataset, 'classification_report.json'), 'w') as f:
         json.dump(report, f, indent=4)
 
     # Explanation
@@ -236,11 +234,6 @@ def main():
     # update explainer specific params
     if args.explainer_name == 'dice':
         explainer_params['method'] = args.dice_solver
-    elif args.explainer_name == 'bfcf':
-        bfcf_solver = {'opt': 'optimal', 'exp': 'expert'}[args.bfcf_solver]
-        explainer_params['method'] = bfcf_solver
-        if bfcf_solver == 'expert':
-            explainer_params['efforts'] = feature_costs
     elif args.explainer_name == 'proce':
         explainer_params['ae_dir'] = os.path.join('/'.join(output_dir.split('/')[:-1]) + '/AE')
         explainer_params['random_state'] = args.seed

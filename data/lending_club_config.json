@@ -15,7 +15,17 @@
     "binning_fit_params": {
         "*": {
             "monotonic_trend": "auto_asc_desc",
-            "max_n_bins": null
+            "min_prebin_size": 0.01,
+            "min_bin_size": 0.05,
+            "max_n_bins": 6
+        },
+        "addr_state": {
+            "user_splits": [["CA"], ["FL"], ["GA"], ["IL"], ["NY"], ["TX"], ["Other"]],
+            "user_splits_fixed": [true, true, true, true, true, true, true],
+            "monotonic_trend": "auto", "min_prebin_size": 0.05, "min_bin_size": null, "max_n_bins": null
+        },
+        "open_acc": {
+            "monotonic_trend": "auto"
         }
     },
     "monotonic_features": {
