@@ -3,7 +3,7 @@ import math
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
-from aux_models import OneHotDataClassifierAdapter
+from classifiers import OneHotDataClassifierAdapter
 
 CONT_FEATURES_GERMAN_CREDIT = ["duration", "credit_amount", "age"]
 CONT_FEATURES_LENDING = ["emp_length", "annual_inc", "open_acc", "credit_years"]

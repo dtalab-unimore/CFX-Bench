@@ -9,6 +9,15 @@ from sklearn.utils.validation import check_is_fitted
 from utils import get_binning_maps
 
 
+def get_classifier(name, params):
+    if name == 'lr':
+        from sklearn.linear_model import LogisticRegression
+        if params is None:
+            params = dict(solver="newton-cholesky", penalty=None)
+        return LogisticRegression(**params)
+    raise NotImplementedError("Supported models: ['lr']")
+
+
 class ClassifierForBinnedData(ClassifierMixin, BaseEstimator):
 
     def __init__(self, estimator, binning_process_: BinningProcess, transform_type=None, estimator_fit_kwargs=None):

@@ -143,15 +143,15 @@ def main():
     parser.add_argument('--dataset', type=str, choices=[
         'german-credit', 'lending-club', 'adult', 'compas'
     ])
-    parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
-    parser.add_argument('--test_case_sel_method', type=str, default='border',
-                        choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
     parser.add_argument('--explainer_name', type=str, choices=[
         'ar', 'dice', 'face', 'nice', 'optbin', 'proce',
         'ares', 'globe-ce', 'facegroup', 'glance', 'llm-global', 'llm-local'
     ])
+    parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
+    parser.add_argument('--test_case_sel_method', type=str, default='auto-refuse',
+                        choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
 
-    parser.add_argument('--llm', type=str)
+    parser.add_argument('--llm', type=str, choices=['llama-3.1-8b', 'mistral-small-3.2', 'gpt-4o-mini'])
     parser.add_argument('--prompt_style', type=str, choices=['base', 'full', 'full-examples'])
     parser.add_argument('--use_cache', action='store_true')
     parser.add_argument('--seed', type=int, default=42)
@@ -164,8 +164,7 @@ def main():
 
     llm_name = {
         'llama-3.1-8b': 'meta-llama/Llama-3.1-8B-Instruct',
-        'qwen': 'Qwen2.5-14B-Instruct',
-        'mistral': 'Mistral-Small-3.2-24B-Instruct-2506'
+        'mistral-small-3.2': 'Mistral-Small-3.2-24B-Instruct-2506'
     }.get(args.llm, args.llm)
 
     # Load the LLM

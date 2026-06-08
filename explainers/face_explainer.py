@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
-from aux_models import OneHotDataClassifierAdapter
+from classifiers import OneHotDataClassifierAdapter
 from explainers.base import BaseExplainer, prepare_output
 from explainers.FACE import CFGenerator
 

@@ -15,7 +15,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score, r2_score
 from tqdm import tqdm
 
-from aux_models import ClassifierForBinnedData
+from classifiers import ClassifierForBinnedData, get_classifier
 from dataset import get_dataset
 from explainers import get_cf_explainer
 from explainers.global_explainers.metrics_gcfes import compute_metrics_global, compute_metrics_auc_global, \
@@ -37,10 +37,10 @@ def parse_args():
     parser.add_argument('--dataset', type=str, choices=[
         'german-credit', 'lending-club', 'adult', 'compas'
     ])
-    parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
-    parser.add_argument('--test_case_sel_method', type=str, default='border',
-                        choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
     parser.add_argument('--explainer_name', type=str, choices=(LOCAL_EXPLAINERS + GLOBAL_EXPLAINERS))
+    parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
+    parser.add_argument('--test_case_sel_method', type=str, default='auto-refuse',
+                        choices=['auto-refuse', 'border', 'neg_border', 'pos_border', 'fp', 'fn'])
     parser.add_argument('--seed', type=int, default=42)
 
     # Explainer specific params
@@ -152,10 +152,7 @@ def main():
     with open(os.path.join(output_dir, 'config.json'), 'w') as f:
         json.dump(dataset.get_config(), f, indent=4)
 
-    if args.model_name == 'lr':
-        estimator = LogisticRegression(solver="newton-cholesky", penalty=None)
-    else:
-        raise NotImplementedError("Supported models: ['lr']")
+    estimator = get_classifier(args.model_name)
 
     X_train_orig, X_test_orig = X_train.copy(), X_test.copy()
 

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 
-from aux_models import OneHotDataClassifierAdapter
+from classifiers import OneHotDataClassifierAdapter
 from explainers.AR import ActionableRecourse
 from explainers.base import BaseExplainer, _empty_explanation_dict, prepare_output
 from recourse import ActionSet
