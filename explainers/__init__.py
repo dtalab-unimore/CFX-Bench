@@ -34,7 +34,7 @@ def get_cf_explainer(expl_name, expl_params):
         from explainers.global_explainers.llmglobal_explainer import LlmGlobalExplainer
         return LlmGlobalExplainer(**expl_params)
     if expl_name == 'llm-local':
-        from explainers.global_explainers.llmlocal_explainer import LlmLocalExplainer
+        from explainers.llmlocal_explainer import LlmLocalExplainer
         return LlmLocalExplainer(**expl_params)
 
     raise ValueError("Explainer not found!")

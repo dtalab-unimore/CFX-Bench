@@ -103,7 +103,7 @@ class OneHotDataClassifierAdapter(ClassifierMixin, BaseEstimator):
         categories = []
         ohe_feature_groups = {}
         for i, feature_category in enumerate(self.ohe_feature_names):
-            feature, category = feature_category.split(self.ohe_separator)
+            feature, category = feature_category.split(self.ohe_separator, 1)
             categories.append(category)
             if feature not in ohe_feature_groups:
                 ohe_feature_groups[feature] = []

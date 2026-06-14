@@ -31,7 +31,7 @@ class HuggingFaceClient(LLMClient):
         device : str
             'cuda' uses device_map='auto'; 'cpu' forces CPU.
         local_files_only : bool
-            If True, avoids downloading models and relies on local cache.
+            If True, avoids downloading and relies on the HF cache.
         torch_dtype : torch.dtype
             Compute dtype for weights / activations.
         top_p : float
@@ -52,8 +52,7 @@ class HuggingFaceClient(LLMClient):
             "device_map": "auto" if device == "cuda" else device,
             "torch_dtype": torch_dtype,
             "token": token,
-            "local_files_only": local_files_only,
-            # "trust_remote_code": True,
+            "local_files_only": local_files_only
         }
         if quantization_config is not None:
             load_kwargs["quantization_config"] = quantization_config

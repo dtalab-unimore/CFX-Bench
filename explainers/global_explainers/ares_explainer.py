@@ -43,8 +43,8 @@ class AresExplainer(BaseExplainer):
             apriori_threshold = 0.05
             constraints = [50, 3, 10]
         elif self.dataset_name == "lending":
-            apriori_threshold = 0.01
-            constraints = [30, 4, 4]
+            apriori_threshold = 0.05
+            constraints = [50, 3, 10]
         elif self.dataset_name == "compas":
             apriori_threshold = 0.04
             constraints = [15, 3, 6]
@@ -97,7 +97,7 @@ class AresExplainer(BaseExplainer):
                 if self.model.predict(cf.to_frame().T)[0] == 1:
                     cfs.append(cf)
                     if len(cfs) >= n_cf:
-                        break  # todo: adapt for n_cf > 1
+                        break
                 cumulative_cf = apply_then(cumulative_cf, thens, self.num_features)
                 if self.model.predict(cumulative_cf.to_frame().T)[0] == 1 and not flag:
                     cumulative_cf_final.append(cumulative_cf)
@@ -105,7 +105,6 @@ class AresExplainer(BaseExplainer):
                         flag = True
         if len(cfs) == 0:
             if len(cumulative_cf_final) == 0:
-                # cfs = cumulative_cf
                 return _empty_explanation_dict(test_item)
             else:
                 cfs = pd.DataFrame(cumulative_cf_final)

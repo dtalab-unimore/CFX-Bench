@@ -1,4 +1,5 @@
 import json
+import os.path
 import time
 
 import pandas as pd
@@ -7,6 +8,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 from llm_clients import get_llm
 from llm_clients.utils import get_model_token
+from utils import clean_numpy2_strings
 from .adapters import LlmAdapter
 from .cf_explainer import BaseExplainer, _empty_explanation_dict
 from .utils_explainers import prepare_output, apply_rules_llm
@@ -16,7 +18,7 @@ NAME = "llm-global"
 
 class LlmGlobalExplainer(BaseExplainer):
     def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
-                 dataset_name, **kwargs):
+                 dataset_name, output_dir, **kwargs):
         self.model = model
         self.df_train = df_train
         self.features = features
@@ -25,6 +27,7 @@ class LlmGlobalExplainer(BaseExplainer):
         self.act_features = act_features
         self.target = target
         self.dataset_name = dataset_name
+        self.output_dir = output_dir
 
         # prepare data
         # self.model_bin, X_bins, self.binning_process, y = prepare_data_bin(self.df_train, self.features, self.target, self.model)
@@ -56,19 +59,30 @@ class LlmGlobalExplainer(BaseExplainer):
 
         # model_name = 'Meta-Llama-3.1-8B-Instruct'
         model_name = 'gpt-4.1-mini'
-        self.llm = get_llm(model_name, get_model_token(model_name))
-        text, tokens = self.llm.ask(
-            [{'role': 'user', 'content': prompt}],
-            max_response_length=max_tokens, temperature=0.2
-        )
-        ans = json.loads(text)
-        self.rules = [pd.Series(obj['changes']) for obj in ans]
-        if self.dataset_name == "adult":
-            for q, series in enumerate(self.rules):
-                for k, value in series.items():
-                    if k in self.cat_features:
-                        if not self.rules[q][k].startswith(" "):
-                            self.rules[q][k] = " " + value
+        rules_file = f'{output_dir}/rules_{model_name}.json'
+        if os.path.exists(rules_file):
+            with open(rules_file, 'r') as f:
+                rules = json.load(f)
+                self.rules = [pd.Series(r) for r in rules]
+        else:
+            self.llm = get_llm(model_name, get_model_token(model_name))
+            text, tokens = self.llm.ask(
+                [{'role': 'user', 'content': prompt}],
+                max_response_length=max_tokens, temperature=0.2
+            )
+            ans = json.loads(text)
+            self.rules = [pd.Series(obj['changes']) for obj in ans]
+            with open(rules_file, 'w') as f:
+                json.dump([r.to_dict() for r in self.rules], f)
+        rules_df = pd.DataFrame(self.rules, columns=self.features)
+        rules_df = self.model.binning_process_.transform(rules_df, metric='bins')
+        self.rules = [clean_numpy2_strings(r[r!='Missing']) for _, r in rules_df.iterrows()]
+        # if self.dataset_name == "adult":
+        #     for q, series in enumerate(self.rules):
+        #         for k, value in series.items():
+        #             if k in self.cat_features:
+        #                 if not self.rules[q][k].startswith(" "):
+        #                     self.rules[q][k] = " " + value
 
         # end timer to measure training efficiency
         end = time.perf_counter()

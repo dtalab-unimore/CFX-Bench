@@ -146,11 +146,11 @@ def apply_rules_llm(record, rules, model):
 
     cumulative_cfs, cumulative_cfs_final, cfs = record.copy(), [], []
     for rule in rules:
-        cf = record.copy().to_frame().T
+        cf = record.copy() #.to_frame().T
         for col, value in rule.items():
-            value = model.binning_process_.get_binned_variable(col).transform([value], metric='bins')
-            value = clean_numpy2_strings(pd.Series(value, index=[col]))
-            value = value.values[0]
+            # value = model.binning_process_.get_binned_variable(col).transform([value], metric='bins')
+            # value = clean_numpy2_strings(pd.Series(value, index=[col]))
+            # value = value.values[0]
             if value == 'unknown':
                 value = record[col]
             if value != record[col]:

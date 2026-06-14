@@ -217,7 +217,7 @@ class Dataset:
 
 class GermanCreditDataset(Dataset):
     def __init__(self, random_state=None):
-        with open("data/german_credit_config.json", 'r') as f:
+        with open("data/_german_credit_config.json", 'r') as f:
             config = json.load(f)
         config = _binning_fit_params_wildcard(config)
         config = _load_user_splits(config)

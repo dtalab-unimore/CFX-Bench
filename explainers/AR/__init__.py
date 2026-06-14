@@ -4,7 +4,7 @@ from typing import Dict, Optional, List, Callable
 import numpy as np
 import pandas as pd
 
-import recourse as rs
+from . import recourse as rs
 
 logger = logging.getLogger(__name__)
 

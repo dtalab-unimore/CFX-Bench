@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 import torch
 from optbinning import BinningProcess
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, roc_auc_score, r2_score
 from tqdm import tqdm
 
@@ -23,8 +22,8 @@ from explainers.global_explainers.metrics_gcfes import compute_metrics_global, c
 from test_case_generator import TestCaseGenerator
 from utils import get_binning_maps, OrdinalBinsEncoder, clean_numpy2_strings, conf_to_str
 
-LOCAL_EXPLAINERS  = ['ar', 'dice', 'face', 'nice', 'optbin', 'proce']
-GLOBAL_EXPLAINERS = ['ares', 'globe-ce', 'facegroup', 'glance', 'llm-global', 'llm-local']
+LOCAL_EXPLAINERS  = ['ar', 'dice', 'face', 'nice', 'optbin', 'proce', 'llm-local']
+GLOBAL_EXPLAINERS = ['ares', 'globe-ce', 'facegroup', 'glance', 'llm-global']
 
 
 def parse_args():
@@ -134,16 +133,16 @@ def main():
     binning_fit_params = dataset.get_binning_fit_params()
 
     # === Pascal Case ===
-    pascal_case_map = {f: to_pascal_case(f) for f in features}
-    inverse_pascal_case_map = {v: k for k, v in pascal_case_map.items()}
-    X_train.rename(columns=pascal_case_map, inplace=True)
-    X_test.rename(columns=pascal_case_map, inplace=True)
-    features = [pascal_case_map[f] for f in features]
-    num_features, cat_features = [pascal_case_map[f] for f in num_features], [pascal_case_map[f] for f in cat_features]
-    act_features = [pascal_case_map[f] for f in act_features]
-    monotonic_features = {pascal_case_map[f]: v for f, v in monotonic_features.items()}
-    feature_costs = {pascal_case_map[f]: v for f, v in feature_costs.items()}
-    binning_fit_params = {pascal_case_map[f]: v for f, v in binning_fit_params.items()}
+    # pascal_case_map = {f: to_pascal_case(f) for f in features}
+    # inverse_pascal_case_map = {v: k for k, v in pascal_case_map.items()}
+    # X_train.rename(columns=pascal_case_map, inplace=True)
+    # X_test.rename(columns=pascal_case_map, inplace=True)
+    # features = [pascal_case_map[f] for f in features]
+    # num_features, cat_features = [pascal_case_map[f] for f in num_features], [pascal_case_map[f] for f in cat_features]
+    # act_features = [pascal_case_map[f] for f in act_features]
+    # monotonic_features = {pascal_case_map[f]: v for f, v in monotonic_features.items()}
+    # feature_costs = {pascal_case_map[f]: v for f, v in feature_costs.items()}
+    # binning_fit_params = {pascal_case_map[f]: v for f, v in binning_fit_params.items()}
     # ======
 
     output_dir = os.path.join('output', conf_to_str(conf))
@@ -168,7 +167,7 @@ def main():
         X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
         if monotonic_features:
             resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
-            dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
+            # dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
     else:
         binning_process = BinningProcess(
             features,
@@ -184,7 +183,7 @@ def main():
 
         if monotonic_features:
             resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
-            dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
+            # dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
 
         classifier = ClassifierForBinnedData(
             estimator, binning_process, transform_type='woe'
@@ -251,10 +250,8 @@ def main():
         del explainer_params['y_train']
         explainer_params['df_train'] = pd.concat([X_train, y_train], axis=1)
         explainer_params['dataset_name'] = args.dataset
+        explainer_params['output_dir'] = output_dir
     elif args.explainer_name == 'llm-local':
-        del explainer_params['X_train']
-        del explainer_params['y_train']
-        explainer_params['df_train'] = pd.concat([X_train_orig, y_train], axis=1)
         explainer_params['dataset_name'] = args.dataset
 
     global_start_time = time.time()
@@ -294,7 +291,7 @@ def main():
         cf_times.append(elapsed_time)
         records_orig.append(X_test_orig.loc[record_id])
 
-        # if i == 1: break  # TODO: debug
+        if i == 1: break  # TODO: debug
 
     global_elapsed_time = time.time() - global_start_time
 
@@ -363,9 +360,9 @@ def main():
 
     for record_orig, expl in zip(records_orig, list_expl):
         expl.record = record_orig
-        expl.record.rename(inverse_pascal_case_map, inplace=True)
-        expl.list_expl_full.rename(columns=inverse_pascal_case_map, inplace=True)
-        expl.list_expl_changes.rename(columns=inverse_pascal_case_map, inplace=True)
+        # expl.record.rename(inverse_pascal_case_map, inplace=True)
+        # expl.list_expl_full.rename(columns=inverse_pascal_case_map, inplace=True)
+        # expl.list_expl_changes.rename(columns=inverse_pascal_case_map, inplace=True)
     with open(os.path.join(output_dir, 'CF.json'), 'w') as f:
         json.dump([expl.to_json() for expl in list_expl], f, indent=4)
 

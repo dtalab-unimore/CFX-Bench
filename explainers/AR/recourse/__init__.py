@@ -1,4 +1,4 @@
-from recourse import action_set
+from . import action_set
 from recourse import auditor
 from recourse import builder
 from recourse import flipset

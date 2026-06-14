@@ -8,19 +8,6 @@ from raiutils.exceptions import UserConfigValidationException
 from explainers.base import BaseExplainer, prepare_output, _empty_explanation_dict
 
 
-class _ModelWrapperClass:
-
-    def __init__(self, model, ordenc):
-        self.model = model
-        self.ordenc = ordenc
-
-    def predict_proba(self, X):
-        return self.model.predict_proba(self.ordenc.inverse_transform(X))
-
-    def predict(self, X):
-        return self.model.predict(self.ordenc.inverse_transform(X))
-
-
 class DiceExplainer(BaseExplainer):
 
     def __init__(self, model: Scorecard, X_train, y_train, features, cat_features, num_features, act_features, target,
