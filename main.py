@@ -291,7 +291,7 @@ def main():
         cf_times.append(elapsed_time)
         records_orig.append(X_test_orig.loc[record_id])
 
-        if i == 1: break  # TODO: debug
+        # if i == 1: break  # TODO: debug
 
     global_elapsed_time = time.time() - global_start_time
 

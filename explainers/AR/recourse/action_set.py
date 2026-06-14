@@ -4,7 +4,7 @@ import pandas as pd
 import itertools
 from collections import namedtuple
 from prettytable import PrettyTable
-from recourse.helper_functions import parse_classifier_args
+# from recourse.helper_functions import parse_classifier_args
 from scipy.stats import gaussian_kde as kde
 from scipy.interpolate import interp1d
 
@@ -14,6 +14,8 @@ from scipy.interpolate import interp1d
 # todo: set default bounds / step types for each variable type
 
 __all__ = ['ActionSet']
+
+from explainers.AR.recourse.helper_functions import parse_classifier_args
 
 
 class ActionSet(object):

@@ -4,7 +4,7 @@ from typing import Dict, Optional, List, Callable
 import numpy as np
 import pandas as pd
 
-from . import recourse as rs
+import explainers.AR.recourse as rs
 
 logger = logging.getLogger(__name__)
 

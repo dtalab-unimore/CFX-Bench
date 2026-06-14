@@ -6,8 +6,9 @@ from sklearn.preprocessing import OneHotEncoder
 
 from classifiers import OneHotDataClassifierAdapter
 from explainers.AR import ActionableRecourse
+from explainers.AR.recourse.action_set import ActionSet
 from explainers.base import BaseExplainer, _empty_explanation_dict, prepare_output
-from recourse import ActionSet
+# from recourse import ActionSet
 from utils import get_binning_maps
 
 

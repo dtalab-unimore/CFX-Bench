@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-from recourse.helper_functions import parse_classifier_args
-from recourse.action_set import ActionSet
-from recourse.builder import RecourseBuilder
-from recourse.defaults import VALID_MIP_COST_TYPES, VALID_ENUMERATION_TYPES, DEFAULT_SOLVER
+from .helper_functions import parse_classifier_args
+from .action_set import ActionSet
+from .builder import RecourseBuilder
+from .defaults import VALID_MIP_COST_TYPES, VALID_ENUMERATION_TYPES, DEFAULT_SOLVER
 
 pd.set_option('display.max_columns', 10)
 __all__ = ['Flipset']
