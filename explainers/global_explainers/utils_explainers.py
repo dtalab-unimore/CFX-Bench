@@ -37,7 +37,7 @@ def prepare_output(model, cfs, test_item):
         "list_expl_changes": list_expl_changes, "list_new_probs": pd.Series(list_new_probs),
     }
 
-def immutable_features(num_features, cat_features, act_features, face_features):
+def immutable_features(num_features, cat_features, act_features, face_features, ohe_sep='_'):
     """
     Compute names of immutable features columns.
     """
@@ -46,7 +46,7 @@ def immutable_features(num_features, cat_features, act_features, face_features):
     raw_immutables = ([f for f in num_features if f not in act_features] +
                       [f for f in cat_features if f not in act_features])
     for raw_feat in raw_immutables:
-        cols = [c for c in face_features if c.startswith(raw_feat + "_")]
+        cols = [c for c in face_features if c.startswith(raw_feat + ohe_sep)]
         immutables.extend(cols)
     immutables_idx = [face_features.index(f) for f in immutables]
     return immutables, immutables_idx
@@ -178,7 +178,7 @@ def prepare_data_face(df_train, features, target, model, num_features, cat_featu
     # features passed to FACE and FACEGroup are all numeric
     face_features = list(ohe.get_feature_names_out())
     # define immutable features
-    immutables, immutables_idx = immutable_features(num_features, cat_features, act_features, face_features)
+    immutables, immutables_idx = immutable_features(num_features, cat_features, act_features, face_features, ohe_sep='§')
     return ohe, model_ohe, X_oh, binning_process, y, face_features, immutables, immutables_idx
 
 
@@ -211,7 +211,8 @@ def prepare_data_ohe(df_train, features, target, model):
     """
     prepare data using binning and one-hot encoding.
     """
-    ohe_sep = '_'
+    # ohe_sep = '_'
+    ohe_sep = '§'
     X, y = df_train[features], df_train[target]
     OHE = OneHotEncoder(sparse_output=False, drop=None, feature_name_combiner=lambda a, b: f"{a}{ohe_sep}{b}")  # feature_name_combiner?
     X_oh = OHE.fit_transform(X, y)

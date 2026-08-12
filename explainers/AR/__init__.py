@@ -20,21 +20,19 @@ class ActionableRecourse:
         A function that takes a 2D array of instances and returns 
         the prediction probabilities (e.g., clf.predict_proba).
     X_train : pd.DataFrame
-        Training data used to initialize the ActionSet and LIME explainer.
-    y_train : pd.Series or np.ndarray
-        Training labels used for LIME explainer.
+        Training data used to initialize the ActionSet.
     feature_names : List[str]
         Ordered list of feature names.
     continuous_features : List[str]
         List of continuous feature names.
     immutable_features : List[str]
         List of immutable feature names that cannot be changed.
+    coeffs : np.ndarray
+        Global coefficients.
+    intercepts: np.ndarray
+        Global intercepts.
     hyperparams : dict, optional
-        Dictionary containing hyperparameters. 
-    coeffs : np.ndarray, optional
-        Global coefficients. Will be approximated locally by LIME if None.
-    intercepts: np.ndarray, optional
-        Global intercepts. Will be approximated locally by LIME if None.
+        Dictionary containing hyperparameters.
     y_desired : int, default=1
         The desired target class for the counterfactuals.
 
@@ -42,8 +40,6 @@ class ActionableRecourse:
     -----
     - Hyperparams
         * "fs_size": int, default: 100 (Size of generated flipset)
-        * "discretize": bool, default: False (Parameter for LIME sampling)
-        * "sample": bool, default: True (LIME sampling around instance)
 
     .. [1] Berk Ustun, Alexander Spangher, and Y. Liu. 2019. Actionable Recourse in Linear Classification.
         In Proceedings of the Conference on Fairness, Accountability, and Transparency (FAT*)
@@ -51,27 +47,23 @@ class ActionableRecourse:
 
     _DEFAULT_HYPERPARAMS = {
         "fs_size": 100,
-        "discretize": False,
-        "sample": True,
     }
 
     def __init__(
             self,
             predict_proba: Callable,
             X_train: pd.DataFrame,
-            y_train: pd.Series,
             feature_names: List[str],
             continuous_features: List[str],
             immutable_features: List[str],
+            coeffs: np.ndarray,
+            intercepts: np.ndarray,
             hyperparams: Optional[Dict] = None,
-            coeffs: Optional[np.ndarray] = None,
-            intercepts: Optional[np.ndarray] = None,
             y_desired: int = 1
     ) -> None:
 
         self.predict_proba = predict_proba
         self.X_train = X_train
-        self.y_train = y_train
         self.feature_names = feature_names
         self.continuous_features = continuous_features
         self.immutable_features = immutable_features
@@ -106,22 +98,14 @@ class ActionableRecourse:
         Generate counterfactual examples for given factual instances.
         """
         cfs = []
-        coeffs = self._coeffs
-        intercepts = self._intercepts
 
         # To keep matching indexes for iterrows and coeffs
         factuals = factuals.reset_index(drop=True)
         factuals = factuals[self.feature_names]
 
-        # Check if we need LIME to build coefficients
-        if (coeffs is None) and (intercepts is None):
-            logger.info("Start generating LIME coefficients")
-            coeffs, intercepts = self._get_lime_coefficients(factuals)
-            logger.info("Finished generating LIME coefficients")
-        else:
-            # Broadcast global explanations to correct shape 
-            coeffs = np.vstack([self._coeffs] * factuals.shape[0])
-            intercepts = np.vstack([self._intercepts] * factuals.shape[0]).squeeze(axis=1)
+        # Broadcast global explanations to correct shape
+        coeffs = np.vstack([self._coeffs] * factuals.shape[0])
+        intercepts = np.vstack([self._intercepts] * factuals.shape[0]).squeeze(axis=1)
 
         # Generate counterfactuals
         for index, row in factuals.iterrows():

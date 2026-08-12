@@ -226,11 +226,12 @@ class GlobeCeAdapter(GlobalCFMethod):
         n = len(self.factuals)
         dists = np.full(n, np.nan)
         for pos, fidx in enumerate(self._factual_idx):
-            scalar_idx = min_idxs[fidx]
+            # scalar_idx = min_idxs[fidx]
+            scalar_idx = pos
             if not np.isnan(scalar_idx):
                 lambda_coef = k_s[int(scalar_idx)]
-                x_cf_oh = np.asarray(self.globe_ce.x_aff[fidx], dtype=float).ravel() \
-                    + (lambda_coef * delta)
+                # x_cf_oh = np.asarray(self.globe_ce.x_aff[fidx], dtype=float).ravel() + (lambda_coef * delta)
+                x_cf_oh = np.asarray(self.globe_ce.x_aff[pos], dtype=float).ravel() + (lambda_coef * delta)
                 diff = self._factuals_oh[pos] - x_cf_oh
                 dists[pos] = np.sqrt(np.dot(diff, diff))
 

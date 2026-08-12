@@ -33,7 +33,7 @@ class GlobeCeExplainer(BaseExplainer):
         self.cat_features, _, self.immutables, self.ohe, self.model_ohe, X_oh, self.binning_process, _, n_bins = (
             prepare_data_ares_globece(self.features, self.act_features, self.df_train, self.target, self.model, self.dataset_name))
         dataset = DatasetLoader(self.features, self.cat_features, [], self.df_train,
-                                pd.concat([X_oh, self.df_train[self.target]], axis=1))
+                                pd.concat([X_oh, self.df_train[self.target]], axis=1), ohe_sep='§')
         # self.wrapper_model = ModelWrapper(self.model_ohe)
 
         # initialise AReS to determine bin widths for costs
@@ -92,7 +92,7 @@ class GlobeCeExplainer(BaseExplainer):
 
         self.training_efficiency = end - start
         self.adapter = GlobeCeAdapter(self.globe_ce, None, self.k_s,
-                                 self.min_costs_idxs, self.binning_process, self.ohe, self.scalars_div)
+                                 self.min_costs_idxs, self.binning_process, self.ohe)
 
     def _explain(self, test_item, n_cf=1):
         # unpack test item

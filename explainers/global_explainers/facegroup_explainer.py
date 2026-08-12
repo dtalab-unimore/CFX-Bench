@@ -25,10 +25,10 @@ K = 50
 K_SELECTION_METHOD = "accross_all_ccs"
 CFE_SELECTION_METHOD = "greedy"
 ALG = "BINARY SEARCH"
-GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex_['female : divorced/separated/married']"
-GROUP_IDENTIFIER_LENDING = "home_ownership_['MORTGAGE']"
-GROUP_IDENTIFIER_COMPAS = "sex_['Female']"
-GROUP_IDENTIFIER_ADULT = "sex_[' Female']"
+GROUP_IDENTIFIER_GERMAN_CREDIT = "personal_status_sex§['female : divorced/separated/married']"
+GROUP_IDENTIFIER_LENDING = "home_ownership§['MORTGAGE']"
+GROUP_IDENTIFIER_COMPAS = "sex§['Female']"
+GROUP_IDENTIFIER_ADULT = "sex§[' Female']"
 
 
 class FaceGroupExplainer(BaseExplainer):

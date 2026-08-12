@@ -31,7 +31,7 @@ class AresExplainer(BaseExplainer):
         self.cat_features, self.cont_features, self.immutables, self.ohe, self.model_ohe, X_oh, self.binning_process, _, n_bins = (
             prepare_data_ares_globece(self.features, self.act_features, self.df_train, self.target, self.model, self.dataset_name))
         dataset = DatasetLoader(self.features, self.cat_features, self.cont_features, self.df_train,
-                                pd.concat([X_oh, self.df_train[self.target]], axis=1))
+                                pd.concat([X_oh, self.df_train[self.target]], axis=1), ohe_sep='§')
 
         # start timer to measure training efficiency
         start = time.perf_counter()
