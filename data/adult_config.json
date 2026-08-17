@@ -14,7 +14,6 @@
     "binning_fit_params": {
         "*": {
             "monotonic_trend": "auto_asc_desc",
-            "max_n_bins": 4,
             "min_n_bins": 2
         },
         "education": {

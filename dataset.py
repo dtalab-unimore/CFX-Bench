@@ -34,9 +34,6 @@ class Dataset:
             Parameters to be passed directly to the binning algorithm during preprocessing.
         data_path : str, optional
             Path to a single dataset file. If provided, `train_path` and `test_path` are ignored.
-        data_sample : int, optional
-            Absolute number of samples to draw from the single dataset (via `data_path`)
-            before any train/test splitting occurs. Stratified by the target.
         test_split : float, optional
             The proportion of the dataset to include in the test split when using `data_path`.
             If `data_path` is provided but `test_split` is None, the entire dataset is
@@ -45,9 +42,6 @@ class Dataset:
             Path to the pre-split training dataset file. Used if `data_path` is None.
         test_path : str, optional
             Path to the pre-split testing dataset file. Used if `data_path` is None.
-        train_sample : int, optional
-            Absolute number of samples to draw from the resulting training set.
-            Stratified by the target.
         test_sample : int, optional
             Absolute number of samples to draw from the resulting testing set.
             Stratified by the target.
@@ -84,16 +78,16 @@ class Dataset:
         self.threshold_pos = threshold_pos
         self.binning_fit_params = binning_fit_params  # None is the default argument for BinningProcess
         self.data_path = data_path
-        # self.data_sample = data_sample
         self.test_split = test_split
         self.train_path = train_path
         self.test_path = test_path
-        # self.train_sample = train_sample
         self.test_sample = test_sample
         self.random_state = random_state
         if kwargs:
             for k, v in kwargs.items():
                 setattr(self, k, v)
+
+        self.binning_fit_params = _binning_fit_params_wildcard(self.binning_fit_params, self.features)
 
         data, train_data, test_data = self._read_from_file()
         self._prepare_data(data, train_data, test_data)
@@ -130,22 +124,11 @@ class Dataset:
         else:
             if self.id is not None and self.id in data.columns:
                 data = data.set_index(self.id)
-            # if self.data_sample is not None:
-            #     data, _ = train_test_split(data, train_size=self.data_sample,
-            #                                random_state=self.random_state, stratify=data[self.target])
             if self.test_split is not None:
                 train_data, test_data = train_test_split(data[columns].copy(), test_size=self.test_split,
                                                          random_state=self.random_state, stratify=data[self.target])
             else:
                 train_data, test_data = data[columns].copy(), data[columns].copy()
-
-        # if data is None or self.data_sample is None:
-        #     if self.train_sample is not None:
-        #         train_data, _ = train_test_split(train_data, train_size=self.train_sample,
-        #                                          random_state=self.random_state, stratify=train_data[self.target])
-        #     if self.test_sample is not None:
-        #         test_data, _ = train_test_split(test_data, train_size=self.test_sample,
-        #                                         random_state=self.random_state, stratify=test_data[self.target])
 
         self.train_data, self.test_data = train_data, test_data
 
@@ -216,11 +199,12 @@ class Dataset:
 
 
 class GermanCreditDataset(Dataset):
+
+    _conf_file = "data/german_credit_config.json"
+
     def __init__(self, random_state=None):
-        with open("data/german_credit_config.json", 'r') as f:
+        with open(self._conf_file, 'r') as f:
             config = json.load(f)
-        config = _binning_fit_params_wildcard(config)
-        config = _load_user_splits(config)
         super().__init__(random_state=random_state, **config)
 
     def _prepare_data(self, data=None, train_data=None, test_data=None):
@@ -233,7 +217,7 @@ class GermanCreditDataset(Dataset):
         self.test_data[self.target] = 1 - self.test_data[self.target]
 
 
-def _binning_fit_params_wildcard(config):
+def _binning_fit_params_wildcard(binning_fit_params, features):
     """
     If the dictionary for "binning_fit_params" contains the "*" wildcard, such as::
 
@@ -260,38 +244,17 @@ def _binning_fit_params_wildcard(config):
     set to "XYZ" from the wildcard, while "feature1" would keep its own "param1" value of "A" and receive "param3"
     from the wildcard.
     """
-    config = deepcopy(config)
-    if "binning_fit_params" in config and config["binning_fit_params"] is not None:
-        binning_fit_params = config.pop("binning_fit_params")
-        if "*" in binning_fit_params:
-            wildcard_params = binning_fit_params.pop("*")
-            for feature in config["features"]:
-                if feature not in binning_fit_params:
-                    binning_fit_params[feature] = {}
-                for param, value in wildcard_params.items():
-                    if param not in binning_fit_params[feature]:
-                        binning_fit_params[feature][param] = value
-        config["binning_fit_params"] = binning_fit_params
-    return config
-
-
-def _load_user_splits(config):
-    config = deepcopy(config)
-    if "binning_user_splits_path" in config:
-        user_splits_path = config.pop("binning_user_splits_path")
-        binning_fit_params_user_splits = load_user_splits(user_splits_path)
-        if "binning_fit_params" in config and config["binning_fit_params"] is not None:
-            binning_fit_params = config.pop("binning_fit_params")
-            # update with user splits, user splits take precedence over default binning params
-            for feature, user_splits_dict in binning_fit_params_user_splits.items():
-                if feature in binning_fit_params:
-                    binning_fit_params[feature].update(user_splits_dict)
-                else:
-                    binning_fit_params[feature] = user_splits_dict
-        else:
-            binning_fit_params = binning_fit_params_user_splits
-        config["binning_fit_params"] = binning_fit_params
-    return config
+    if not binning_fit_params:
+        return binning_fit_params
+    if "*" in binning_fit_params:
+        wildcard_params = binning_fit_params.pop("*")
+        for feature in features:
+            if feature not in binning_fit_params:
+                binning_fit_params[feature] = {}
+            for param, value in wildcard_params.items():
+                if param not in binning_fit_params[feature]:
+                    binning_fit_params[feature][param] = value
+    return binning_fit_params
 
 
 class AdultIncomeDataset(Dataset):
@@ -303,16 +266,19 @@ class AdultIncomeDataset(Dataset):
         "income"
     ]
 
+    _conf_file = "data/adult_config.json"
+
     def __init__(self, random_state=None):
-        with open("data/adult_config.json", 'r') as f:
+        with open(self._conf_file, 'r') as f:
             config = json.load(f)
-        config = _binning_fit_params_wildcard(config)
-        config = _load_user_splits(config)
         super().__init__(random_state=random_state, **config)
 
     def _read_from_file(self):
         train_data = pd.read_csv(self.train_path, sep=",", header=None)
         test_data = pd.read_csv(self.test_path, sep=",", header=None, skiprows=1)  # skip first row which is not data
+        return None, train_data, test_data
+
+    def _prepare_data(self, data=None, train_data=None, test_data=None):
         # drop rows that contain missing values (marked as ' ?' in the dataset)
         train_data = train_data[~train_data.isin([' ?']).any(axis=1)]
         test_data = test_data[~test_data.isin([' ?']).any(axis=1)]
@@ -320,7 +286,7 @@ class AdultIncomeDataset(Dataset):
         test_data.columns = self._all_features
         train_data[self.target] = (train_data[self.target].values == ' >50K').astype(int)
         test_data[self.target] = (test_data[self.target].values == ' >50K.').astype(int)  # note the '.' at the end of '>50K' in the test set
-        return None, train_data, test_data
+        super()._prepare_data(None, train_data, test_data)
 
 
 class LendingClubDataset(Dataset):
@@ -330,17 +296,16 @@ class LendingClubDataset(Dataset):
     def __init__(self, random_state=None):
         with open(self._conf_file, 'r') as f:
             config = json.load(f)
-        config = _binning_fit_params_wildcard(config)
-        config = _load_user_splits(config)
         super().__init__(random_state=random_state, **config)
 
 
 class CompasDataset(Dataset):
+
+    _conf_file = "data/compas_config.json"
+
     def __init__(self, random_state=None):
-        with open("data/compas_config.json", 'r') as f:
+        with open(self._conf_file, 'r') as f:
             config = json.load(f)
-        config = _binning_fit_params_wildcard(config)
-        config = _load_user_splits(config)
         super().__init__(random_state=random_state, **config)
 
     def _prepare_data(self, data=None, train_data=None, test_data=None):
@@ -359,7 +324,6 @@ class CompasDataset(Dataset):
             data['is_recid'] = data['is_recid'].astype(bool)
             data['is_violent_recid'] = data['is_violent_recid'].astype(bool)
             data = data.drop(columns=['c_jail_in', 'c_jail_out'])
-            data = data.drop(columns=['is_recid'])  # is_recid raises an error with binning and woe
             return data
 
         self.train_data = f(self.train_data)
@@ -368,7 +332,6 @@ class CompasDataset(Dataset):
         self.features.remove('c_jail_in'), self.act_features.remove('c_jail_in')
         self.features.remove('c_jail_out'), self.act_features.remove('c_jail_out')
         self.features.append('length_of_stay'), self.act_features.append('length_of_stay')
-        self.features.remove('is_recid'), self.act_features.remove('is_recid')
 
         return
 
@@ -384,15 +347,3 @@ def get_dataset(dataset_name: str, **kwargs):
         return datasets[dataset_name](**kwargs)
     else:
         raise ValueError(f'Unknown dataset {dataset_name}')
-
-
-def load_user_splits(file_path):
-    binning_dict = {}
-    with open(file_path, 'r') as f:
-        binning_dict = json.load(f)
-    for feature, user_splits in binning_dict.items():
-        binning_dict[feature] = {
-            "user_splits": user_splits,
-            "user_splits_fixed": [True] * (len(user_splits))
-        }
-    return binning_dict

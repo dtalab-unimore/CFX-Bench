@@ -6,11 +6,11 @@
     "target": "two_year_recid",
     "features": [
         "sex", "age", "race", "priors_count", "days_b_screening_arrest", "c_jail_in", "c_jail_out",
-        "c_charge_degree", "is_recid", "is_violent_recid", "score_text"
+        "c_charge_degree", "is_violent_recid", "score_text"
     ],
     "act_features": [
         "priors_count", "days_b_screening_arrest", "c_jail_in", "c_jail_out",
-        "c_charge_degree", "is_recid", "is_violent_recid", "score_text"
+        "c_charge_degree", "is_violent_recid", "score_text"
     ],
     "binning_fit_params": {
         "*": {

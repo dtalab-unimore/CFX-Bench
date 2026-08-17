@@ -92,24 +92,6 @@ def compute_stats(metrics: pd.DataFrame) -> pd.Series:
 
     return stats
 
-import re
-
-
-def to_pascal_case(text):
-    if not text:
-        return text
-
-    if not '_' in text:
-        return text
-
-    # Capitalize the very first letter
-    text = text[0].upper() + text[1:]
-
-    # Find any underscore followed by a lowercase letter and capitalize the letter
-    text = re.sub(r'_([a-z])', lambda match: match.group(1).upper(), text)
-
-    return text
-
 
 def main():
     warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -131,19 +113,6 @@ def main():
     feature_costs = dataset.get_feature_costs()
     test_sample = dataset.get_test_sample()
     binning_fit_params = dataset.get_binning_fit_params()
-
-    # === Pascal Case ===
-    # pascal_case_map = {f: to_pascal_case(f) for f in features}
-    # inverse_pascal_case_map = {v: k for k, v in pascal_case_map.items()}
-    # X_train.rename(columns=pascal_case_map, inplace=True)
-    # X_test.rename(columns=pascal_case_map, inplace=True)
-    # features = [pascal_case_map[f] for f in features]
-    # num_features, cat_features = [pascal_case_map[f] for f in num_features], [pascal_case_map[f] for f in cat_features]
-    # act_features = [pascal_case_map[f] for f in act_features]
-    # monotonic_features = {pascal_case_map[f]: v for f, v in monotonic_features.items()}
-    # feature_costs = {pascal_case_map[f]: v for f, v in feature_costs.items()}
-    # binning_fit_params = {pascal_case_map[f]: v for f, v in binning_fit_params.items()}
-    # ======
 
     output_dir = os.path.join('output', conf_to_str(conf))
     os.makedirs(output_dir, exist_ok=True)
@@ -167,7 +136,6 @@ def main():
         X_train, X_test = clean_numpy2_strings(X_train), clean_numpy2_strings(X_test)
         if monotonic_features:
             resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
-            # dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
     else:
         binning_process = BinningProcess(
             features,
@@ -183,7 +151,6 @@ def main():
 
         if monotonic_features:
             resolve_monotonic_features_placeholders(monotonic_features, binning_process, cat_features, num_features)
-            # dataset.monotonic_features = {inverse_pascal_case_map[k]: v for k, v in monotonic_features.items()}
 
         classifier = ClassifierForBinnedData(
             estimator, binning_process, transform_type='woe'
@@ -360,9 +327,6 @@ def main():
 
     for record_orig, expl in zip(records_orig, list_expl):
         expl.record = record_orig
-        # expl.record.rename(inverse_pascal_case_map, inplace=True)
-        # expl.list_expl_full.rename(columns=inverse_pascal_case_map, inplace=True)
-        # expl.list_expl_changes.rename(columns=inverse_pascal_case_map, inplace=True)
     with open(os.path.join(output_dir, 'CF.json'), 'w') as f:
         json.dump([expl.to_json() for expl in list_expl], f, indent=4)
 
