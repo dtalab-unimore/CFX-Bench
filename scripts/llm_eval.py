@@ -148,7 +148,7 @@ def main():
         'ares', 'globe-ce', 'facegroup', 'glance', 'llm-global', 'llm-local'
     ])
     parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
-    parser.add_argument('--test_case_sel_method', type=str, default='auto-refuse',
+    parser.add_argument('--test_case', type=str, default='auto-refuse',
                         choices=['border', 'neg_border', 'pos_border', 'auto-refuse', 'fp', 'fn'])
 
     parser.add_argument('--llm', type=str, choices=['llama-3.1-8b', 'mistral-small-3.2', 'gpt-4o-mini'])

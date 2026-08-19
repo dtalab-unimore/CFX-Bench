@@ -38,7 +38,7 @@ def parse_args():
     ])
     parser.add_argument('--explainer_name', type=str, choices=(LOCAL_EXPLAINERS + GLOBAL_EXPLAINERS))
     parser.add_argument('--model_name', type=str, default='lr', choices=['lr'])
-    parser.add_argument('--test_case_sel_method', type=str, default='auto-refuse',
+    parser.add_argument('--test_case', type=str, default='auto-refuse',
                         choices=['auto-refuse', 'border', 'neg_border', 'pos_border', 'fp', 'fn'])
     parser.add_argument('--seed', type=int, default=42)
 
@@ -176,7 +176,7 @@ def main():
 
     # Explanation
     test_case = TestCaseGenerator(
-        sel_method=args.test_case_sel_method,
+        sel_method=args.test_case,
         X_test=(X_test_orig if args.explainer_name in ['optbin', 'llm-local'] else X_test),
         y_test=y_test,
         y_pred=y_pred,

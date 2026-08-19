@@ -65,7 +65,7 @@ def conf_to_str(conf):
     dataset = conf['dataset']
     model = conf['model_name']
     explainer = conf['explainer_name']
-    test_case = conf['test_case_sel_method']
+    test_case = conf['test_case']
     seed = conf['seed']
 
     if explainer == 'dice':
