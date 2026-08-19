@@ -68,7 +68,7 @@ class GlanceExplainer(BaseExplainer):
         self.training_efficiency = end - start
         OHE = OneHotEncoder(sparse_output=False, drop=None).fit(X_bins)
         self.adapter = GlanceAdapter(self.clusters_res, self.chosen_actions, None, cat_features,
-                                     self.num_features, OHE, self.binning_process, self.global_actions, self._select_action)
+                                     self.num_features, OHE, self.binning_process)
 
     def _select_action(self, factual):
         if len(self.global_actions) == 0:

@@ -75,7 +75,7 @@ class ARExplainer(BaseExplainer):
                 immutables_ohe.append(ohe_name)
 
         self.cf_model = ActionableRecourse(
-            self.model_ohe.predict_proba, self.X_train, self.y_train, self.features,
+            self.model_ohe.predict_proba, self.X_train, self.features,
             continuous_features=[], immutable_features=immutables_ohe, coeffs=self.coeffs, intercepts=self.intercept,
             y_desired=target,
         )
@@ -107,22 +107,6 @@ class ARExplainer(BaseExplainer):
         list_new_probs = self.model_ohe.predict_proba(cfs_ohe)[:, 1]
         cfs_bins = self.OHE.inverse_transform(cfs_ohe)
         cfs_bins = pd.DataFrame(cfs_bins, columns=self.OHE.feature_names_in_)
-        '''list_expl_full = cfs_bins.reset_index(drop=True)
-        list_expl_changes = []
-        for _, cf in cfs_bins.iterrows():
-            changes = []
-            for col in cfs_bins.columns:
-                if cf[col] != record[col]:
-                    changes.append(cf[col])
-                else:
-                    changes.append('-')
-            list_expl_changes.append(changes)
-        list_expl_changes = pd.DataFrame(list_expl_changes, columns=cfs_bins.columns)
 
-        expl_dict = {
-            'record': record, 'label': label, 'pred': pred,
-            'proba': proba, 'target': target, 'list_expl_full': list_expl_full,
-            'list_expl_changes': list_expl_changes, 'list_new_probs': pd.Series(list_new_probs)
-        }'''
         expl_dict = prepare_output(*test_item, cfs_bins, list_new_probs)
         return expl_dict

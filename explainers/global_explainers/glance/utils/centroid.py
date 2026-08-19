@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import numpy.typing as npt
 from statistics import multimode
-from IPython.display import display
 
 
 def centroid_pandas(

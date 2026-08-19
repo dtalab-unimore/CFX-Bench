@@ -104,10 +104,8 @@ def apply_then(x_cf, then, num_features):
     return x_cf
 
 
-def bin_and_transform(x, binning_process, ohe):
-    # x_bins = binning_process.transform(x, metric="bins")  # FIXME
+def ohe_hot_transform(x, ohe):
     x_bins = x.copy()
-    x_bins = x_bins.replace(r"np\.str_\((['\"].*?['\"])\)", r"\1", regex=True)
     x_oh = ohe.transform(x_bins)
     return pd.DataFrame(x_oh, columns=ohe.get_feature_names_out())
 

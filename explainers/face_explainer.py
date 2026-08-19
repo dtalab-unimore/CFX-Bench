@@ -111,12 +111,13 @@ class FaceExplainer(BaseExplainer):
 
         self.cf = CFGenerator(
             predictor=self.model_ohe,
-            method='kde',
-            # kde_mode=2,  # use sigmoid instead of -log to avoid negative edges
-            # method='knn',
             edge_conditions=edge_conditions,
             undirected=False,
-            distance_threshold=np.sqrt(2)+0.1,
+            prediction_threshold=0.5,
+            method='egraph',
+            epsilon=np.sqrt(len(self.act_features))+0.1,
+            distance_threshold=np.sqrt(len(self.act_features))+0.1,
+            weight_function=lambda x: x,
         )
         self.cf.fit(X_train_oh.to_numpy(), self.y_train.to_numpy())
 

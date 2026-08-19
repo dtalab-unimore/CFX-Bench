@@ -347,32 +347,44 @@ class CFGenerator(object):
         )
 
     def get_weights_e(self):
-        # epsilon-ball radius search (undirected graph).
+        # epsilon-ball radius search. returns both i->j and j->i
         valid_i, valid_j, valid_d = self._radius_edges(self.epsilon)
         if valid_i.size == 0:
             return self._empty_kernel()
 
-        # Lower triangle only (i > j), matching the original `for j in range(i)`,
-        # condition checked in the i -> j direction, then mirrored.
-        lower = valid_i > valid_j
-        i_idx = valid_i[lower]
-        j_idx = valid_j[lower]
-        d_idx = valid_d[lower]
-        if i_idx.size == 0:
-            return self._empty_kernel()
+        if self.undirected:
+            # Undirected: evaluate one direction, then mirror the results symmetrically
+            lower = valid_i > valid_j
+            i_idx = valid_i[lower]
+            j_idx = valid_j[lower]
+            d_idx = valid_d[lower]
+            if i_idx.size == 0:
+                return self._empty_kernel()
 
-        mask = self._condition_mask(i_idx, j_idx)
-        i_idx = i_idx[mask]
-        j_idx = j_idx[mask]
-        d_idx = d_idx[mask]
-        if i_idx.size == 0:
-            return self._empty_kernel()
+            mask = self._condition_mask(i_idx, j_idx)
+            i_idx = i_idx[mask]
+            j_idx = j_idx[mask]
+            d_idx = d_idx[mask]
+            if i_idx.size == 0:
+                return self._empty_kernel()
 
-        vals = self.weight_function(d_idx)
-        # Symmetric: emit both (i, j) and (j, i).
-        rows = np.concatenate([i_idx, j_idx])
-        cols = np.concatenate([j_idx, i_idx])
-        data = np.concatenate([vals, vals])
+            vals = self.weight_function(d_idx)
+            # Symmetric: emit both (i, j) and (j, i)
+            rows = np.concatenate([i_idx, j_idx])
+            cols = np.concatenate([j_idx, i_idx])
+            data = np.concatenate([vals, vals])
+
+        else:
+            # Directed: evaluate conditions specifically in the i -> j direction
+            mask = self._condition_mask(valid_i, valid_j)
+            rows = valid_i[mask]
+            cols = valid_j[mask]
+            d_idx = valid_d[mask]
+            if rows.size == 0:
+                return self._empty_kernel()
+
+            data = self.weight_function(d_idx)
+
         return csr_matrix(
             (data, (rows, cols)),
             shape=(self.n_samples, self.n_samples),

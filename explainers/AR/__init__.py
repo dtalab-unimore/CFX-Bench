@@ -75,8 +75,6 @@ class ActionableRecourse:
             self.hyperparams.update(hyperparams)
 
         self._fs_size = self.hyperparams["fs_size"]
-        self._discretize_continuous = self.hyperparams["discretize"]
-        self._sample_around_instance = self.hyperparams["sample"]
 
         # Build ActionSet
         self.action_set = rs.ActionSet(

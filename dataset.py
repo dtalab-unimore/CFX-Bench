@@ -321,7 +321,6 @@ class CompasDataset(Dataset):
 
             data['days_b_screening_arrest'] = data['days_b_screening_arrest'].astype(int)
             data['length_of_stay'] = data['length_of_stay'].astype(int)
-            data['is_recid'] = data['is_recid'].astype(bool)
             data['is_violent_recid'] = data['is_violent_recid'].astype(bool)
             data = data.drop(columns=['c_jail_in', 'c_jail_out'])
             return data

@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import auc
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from explanation import ExplanationSet
 from tqdm import tqdm
@@ -308,72 +308,72 @@ def cAUC(adapter,
     return saturation_points, cost_for_saturation_points, auc_matrix
 
 
-def plot_k_or_dAUC(saturation_points, cov_for_saturation_points, auc_matrix, score='k',
-                   expand_left_x_axis=0, expand_right_x_axis=1, expand_bottom_y_axis=0.5, expand_top_y_axis=0.5):
-    x_values = list(auc_matrix.keys())
-    group_keys = list(auc_matrix[x_values[0]].keys())
-    x_values_g0 = [auc_matrix[x][group_keys[0]] for x in x_values]
-
-    sp_G0 = [saturation_points[x][group_keys[0]] for x in x_values]
-
-    max_cov_G0 = [np.round(cov_for_saturation_points[x][group_keys[0]], 2) for x in x_values]
-
-    sns.set(style="white")
-    plt.figure(figsize=(8, 6))
-    sns.lineplot(x=x_values, y=x_values_g0, marker='o', color='mediumseagreen', linewidth=2)
-    plt.xlabel(score, fontsize=20)
-    plt.ylabel(f'{score.upper()}AUC Score', fontsize=20)
-    plt.xticks(x_values)
-    plt.legend(fontsize=16, framealpha=0.2)
-    plt.xticks(fontsize=20)
-    plt.yticks(fontsize=20)
-    plt.tight_layout()
-    plt.show()
-
-    plt.figure(figsize=(9, 6))
-    sns.lineplot(x=x_values, y=sp_G0, color='mediumseagreen', marker='o', linewidth=2, alpha=0.7)
-
-    ## get the axis limit from plt
-    x_min, x_max = plt.xlim()
-    y_min, y_max = plt.ylim()
-    plt.xlim(x_min - expand_left_x_axis, max(x_values) + expand_right_x_axis)
-    plt.ylim(y_min - expand_bottom_y_axis, y_max + expand_top_y_axis)
-
-    x_min, x_max = 0, 100
-    extend_x = 0
-    extend_y = 0
-
-    for i, (x, sp0, max_cov0) in enumerate(zip(x_values, sp_G0, max_cov_G0)):
-        offset0 = (10, 10)
-
-        annotation_x_max_0 = i * offset0[0]
-        annotation_y_max_0 = i * offset0[1]
-        if score == 'k':
-            if annotation_x_max_0 > x_max:
-                extend_x = extend_x + 1
-                extend_x = extend_x + 1
-        elif score == 'd':
-            if annotation_x_max_0 > x_max:
-                extend_x = extend_x + 1
-                extend_x = extend_x + 1
-        if annotation_y_max_0 > max(sp_G0):
-            extend_y = extend_y + 1
-
-        plt.annotate(f'{max_cov0}', (x, sp0), textcoords="offset points", xytext=offset0, \
-                     ha='center', color='mediumseagreen', weight='bold')
-
-    plt.legend(fontsize=16, framealpha=0.2)
-    plt.xticks(x_values, fontsize=20)
-    plt.yticks(fontsize=20)
-
-    if score == 'k':
-        plt.ylabel('Saturation Point: sp(k)', fontsize=20)
-        plt.xlabel('k', fontsize=20)
-    else:
-        plt.ylabel('Saturation Point: sp(d)', fontsize=20)
-        plt.xlabel('d', fontsize=20)
-
-    plt.show()
+# def plot_k_or_dAUC(saturation_points, cov_for_saturation_points, auc_matrix, score='k',
+#                    expand_left_x_axis=0, expand_right_x_axis=1, expand_bottom_y_axis=0.5, expand_top_y_axis=0.5):
+#     x_values = list(auc_matrix.keys())
+#     group_keys = list(auc_matrix[x_values[0]].keys())
+#     x_values_g0 = [auc_matrix[x][group_keys[0]] for x in x_values]
+#
+#     sp_G0 = [saturation_points[x][group_keys[0]] for x in x_values]
+#
+#     max_cov_G0 = [np.round(cov_for_saturation_points[x][group_keys[0]], 2) for x in x_values]
+#
+#     sns.set(style="white")
+#     plt.figure(figsize=(8, 6))
+#     sns.lineplot(x=x_values, y=x_values_g0, marker='o', color='mediumseagreen', linewidth=2)
+#     plt.xlabel(score, fontsize=20)
+#     plt.ylabel(f'{score.upper()}AUC Score', fontsize=20)
+#     plt.xticks(x_values)
+#     plt.legend(fontsize=16, framealpha=0.2)
+#     plt.xticks(fontsize=20)
+#     plt.yticks(fontsize=20)
+#     plt.tight_layout()
+#     plt.show()
+#
+#     plt.figure(figsize=(9, 6))
+#     sns.lineplot(x=x_values, y=sp_G0, color='mediumseagreen', marker='o', linewidth=2, alpha=0.7)
+#
+#     ## get the axis limit from plt
+#     x_min, x_max = plt.xlim()
+#     y_min, y_max = plt.ylim()
+#     plt.xlim(x_min - expand_left_x_axis, max(x_values) + expand_right_x_axis)
+#     plt.ylim(y_min - expand_bottom_y_axis, y_max + expand_top_y_axis)
+#
+#     x_min, x_max = 0, 100
+#     extend_x = 0
+#     extend_y = 0
+#
+#     for i, (x, sp0, max_cov0) in enumerate(zip(x_values, sp_G0, max_cov_G0)):
+#         offset0 = (10, 10)
+#
+#         annotation_x_max_0 = i * offset0[0]
+#         annotation_y_max_0 = i * offset0[1]
+#         if score == 'k':
+#             if annotation_x_max_0 > x_max:
+#                 extend_x = extend_x + 1
+#                 extend_x = extend_x + 1
+#         elif score == 'd':
+#             if annotation_x_max_0 > x_max:
+#                 extend_x = extend_x + 1
+#                 extend_x = extend_x + 1
+#         if annotation_y_max_0 > max(sp_G0):
+#             extend_y = extend_y + 1
+#
+#         plt.annotate(f'{max_cov0}', (x, sp0), textcoords="offset points", xytext=offset0, \
+#                      ha='center', color='mediumseagreen', weight='bold')
+#
+#     plt.legend(fontsize=16, framealpha=0.2)
+#     plt.xticks(x_values, fontsize=20)
+#     plt.yticks(fontsize=20)
+#
+#     if score == 'k':
+#         plt.ylabel('Saturation Point: sp(k)', fontsize=20)
+#         plt.xlabel('k', fontsize=20)
+#     else:
+#         plt.ylabel('Saturation Point: sp(d)', fontsize=20)
+#         plt.xlabel('d', fontsize=20)
+#
+#     plt.show()
 
 
 def filter_subdict(experiment, allowed_subkeys):
@@ -451,14 +451,14 @@ def compute_metrics_auc(adapter, lower_limit_range_for_d, upper_limit_for_k, upp
     saturation_points_k, cov_for_saturation_points_k, auc_matrix_k = kAUC(adapter, distances,
         lower_limit_range_for_d=lower_limit_range_for_d, upper_limit_range_for_d=upper_limit_range_for_d,
         upper_limit_for_k=upper_limit_for_k)
-    if plot:
-        plot_k_or_dAUC(saturation_points_k, cov_for_saturation_points_k, auc_matrix_k, 'k')
+    # if plot:
+    #     plot_k_or_dAUC(saturation_points_k, cov_for_saturation_points_k, auc_matrix_k, 'k')
 
     saturation_points_d, cov_for_saturation_points_d, auc_matrix_d = dAUC(adapter, distances,
         lower_limit_range_for_d=lower_limit_range_for_d, upper_limit_range_for_d=upper_limit_range_for_d,
         upper_limit_for_k=upper_limit_for_k)
-    if plot:
-        plot_k_or_dAUC(saturation_points_d, cov_for_saturation_points_d, auc_matrix_d, 'd')
+    # if plot:
+    #     plot_k_or_dAUC(saturation_points_d, cov_for_saturation_points_d, auc_matrix_d, 'd')
 
     saturation_points_c, cost_for_saturation_points, auc_matrix_c = cAUC(adapter,
         upper_limit_for_k=upper_limit_for_k, plot_=plot)

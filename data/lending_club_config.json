@@ -4,8 +4,7 @@
     "test_sample": 500,
     "id": null,
     "features": [
-        "emp_length", "annual_inc", "open_acc", "credit_years",
-        "grade", "home_ownership", "purpose", "addr_state"
+        "emp_length", "annual_inc", "open_acc", "credit_years", "grade", "home_ownership", "purpose", "addr_state"
     ],
     "target": "loan_status",
     "act_features": [
@@ -16,13 +15,12 @@
         "*": {
             "monotonic_trend": "auto_asc_desc",
             "min_prebin_size": 0.01,
-            "min_bin_size": 0.05,
-            "max_n_bins": 6
+            "min_bin_size": 0.05
         },
         "addr_state": {
             "user_splits": [["CA"], ["FL"], ["GA"], ["IL"], ["NY"], ["TX"], ["Other"]],
             "user_splits_fixed": [true, true, true, true, true, true, true],
-            "monotonic_trend": "auto", "min_prebin_size": 0.05, "min_bin_size": null, "max_n_bins": null
+            "monotonic_trend": "auto", "min_prebin_size": 0.05, "min_bin_size": null
         },
         "open_acc": {
             "monotonic_trend": "auto"

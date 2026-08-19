@@ -2,10 +2,6 @@ import os
 
 import dotenv
 
-from llm_clients.gpt_client import GPTClient
-from llm_clients.hf_client import HuggingFaceClient
-from llm_clients.mistral_client import MistralClient
-
 
 def get_model_source(model_name):
     if 'gpt' in model_name.lower():
@@ -29,6 +25,7 @@ def get_llm(model_name, token=None, seed: int = 42, **kwargs):
     model_source = get_model_source(model_name)
 
     if model_source == 'gpt':
+        from llm_clients.gpt_client import GPTClient
         llm = GPTClient(
             model_name=model_name,
             token=token,
@@ -36,21 +33,19 @@ def get_llm(model_name, token=None, seed: int = 42, **kwargs):
             **kwargs
         )
     elif model_source == 'hf':
-        # local_model_dir = "/leonardo_work/IscrB_ESG-NEXT/HF_models/" + model_name
+        from llm_clients.hf_client import HuggingFaceClient
         llm = HuggingFaceClient(
             model_name=model_name,
             token=token,
             seed=seed,
-            # local_model_dir=local_model_dir, local_files_only=True,
             **kwargs
         )
     elif model_source == 'mistral':
-        # local_model_dir = "/leonardo_work/IscrB_ESG-NEXT/HF_models/" + model_name
+        from llm_clients.mistral_client import MistralClient
         llm = MistralClient(
             model_name=model_name,
             token=token,
             seed=seed,
-            # local_model_dir=local_model_dir, local_files_only=True,
             **kwargs
         )
     else:

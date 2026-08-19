@@ -1,4 +1,4 @@
-from explainers.global_explainers.utils_explainers import rule_applies, apply_then, bin_and_transform
+from explainers.global_explainers.utils_explainers import rule_applies, apply_then, ohe_hot_transform
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
@@ -18,14 +18,14 @@ def _batch_bin_and_transform(df, binning_process, ohe):
     fails or returns an unexpected shape.
     """
     try:
-        out = bin_and_transform(df, binning_process, ohe)
+        out = ohe_hot_transform(df, ohe)
         arr = np.asarray(out, dtype=float)
         if arr.ndim == 2 and arr.shape[0] == len(df):
             return arr
     except Exception:
         pass
     rows = [
-        np.asarray(bin_and_transform(row.to_frame().T, binning_process, ohe),
+        np.asarray(ohe_hot_transform(row.to_frame().T, ohe),
                    dtype=float).ravel()
         for _, row in df.iterrows()
     ]
@@ -308,22 +308,6 @@ class GlanceAdapter(GlobalCFMethod):
         x_cf = x.copy()
         for col, value in selected_actions['action'].items():
             if value != '-':
-                if col in self.num_features:
-                    lb, ub = compute_bounds(value)
-                    if lb != '-inf' and ub != 'inf':
-                        value = (lb + ub) / 2
-                    elif lb == '-inf' and ub != 'inf':
-                        value = ub
-                    elif ub == 'inf' and lb != '-inf':
-                        value = lb
-                else:
-                    if value.count("'") > 2:
-                        v = value.strip("[]").replace("\n", "")
-                        if drop_commas:
-                            v = v.replace(",", "")
-                        value = v.split("' '")[0].strip("'")
-                    else:
-                        value = value.strip("[]'")
                 x_cf[col] = value
         return x_cf
 
@@ -340,7 +324,8 @@ class GlanceAdapter(GlobalCFMethod):
 
         for pos, (idx, x) in enumerate(tqdm(self.factuals.iterrows(), total=n,
                                             desc="Caching action distances", leave=False)):
-            chosen_action = self.chosen_actions[idx]
+            # chosen_action = self.chosen_actions[idx]
+            chosen_action = self.chosen_actions[pos]
             chosen[pos] = chosen_action
             if chosen_action != -1:
                 selected_actions = self.clusters_res[cluster_keys[chosen_action]]

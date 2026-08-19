@@ -1,0 +1,15 @@
+numpy
+pandas<3
+scikit-learn<1.8
+torch
+optbinning
+prettytable
+cplex
+dice_ml
+pymoo
+dotenv
+openai
+transformers
+mlxtend<0.24.0
+pulp
+gurobipy

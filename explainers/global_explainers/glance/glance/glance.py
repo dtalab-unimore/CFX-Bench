@@ -13,7 +13,7 @@ from scipy.cluster.hierarchy import DisjointSet
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 
-from IPython.display import display
+# from IPython.display import display
 from ..base import GlobalCounterfactualMethod
 from ..base import LocalCounterfactualMethod
 from ..base import ClusteringMethod
@@ -845,15 +845,15 @@ def cluster_results(
         return ret_clusters, total_effectiveness_percentage, total_mean_recourse_cost
 
 
-def print_results(
-    clusters_stats: Dict[int, Dict[str, numbers.Number]],
-    total_effectiveness: float,
-    total_cost: float,
-):
-    for i, stats in enumerate(clusters_stats.values()):
-        print(f"CLUSTER {i + 1} with size {stats['size']}:")
-        display(pd.DataFrame(stats["action"]).T)
-        print(f"Effectiveness: {stats['effectiveness']:.2%}, Cost: {stats['cost']:.2f}")
+# def print_results(
+#     clusters_stats: Dict[int, Dict[str, numbers.Number]],
+#     total_effectiveness: float,
+#     total_cost: float,
+# ):
+#     for i, stats in enumerate(clusters_stats.values()):
+#         print(f"CLUSTER {i + 1} with size {stats['size']}:")
+#         display(pd.DataFrame(stats["action"]).T)
+#         print(f"Effectiveness: {stats['effectiveness']:.2%}, Cost: {stats['cost']:.2f}")
 
 def format_glance_output(
     cluster_stats: Dict[int, Dict[str, numbers.Number]],
