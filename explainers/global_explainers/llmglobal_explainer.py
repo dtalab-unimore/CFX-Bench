@@ -10,28 +10,32 @@ from llm_clients import get_llm
 from llm_clients.utils import get_model_token
 from utils import clean_numpy2_strings
 from .adapters import LlmAdapter
-from .cf_explainer import BaseExplainer, _empty_explanation_dict
+from explainers.base import BaseExplainer, _empty_explanation_dict
 from .utils_explainers import prepare_output, apply_rules_llm
 
 NAME = "llm-global"
 
 
 class LlmGlobalExplainer(BaseExplainer):
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+    def __init__(self, model: Scorecard, X_train, y_train, features, cat_features, num_features, act_features, target,
                  dataset_name, output_dir, **kwargs):
-        self.model = model
-        self.df_train = df_train
-        self.features = features
-        self.cat_features = cat_features
-        self.num_features = num_features
-        self.act_features = act_features
-        self.target = target
-        self.dataset_name = dataset_name
+        # self.model = model
+        # self.df_train = df_train
+        # self.features = features
+        # self.cat_features = cat_features
+        # self.num_features = num_features
+        # self.act_features = act_features
+        # self.target = target
         self.output_dir = output_dir
+        self.dataset_name = dataset_name
+        super().__init__(
+            model, X_train, y_train, features, cat_features, num_features, act_features, target
+        )
 
+    def _init(self):
         # prepare data
         # self.model_bin, X_bins, self.binning_process, y = prepare_data_bin(self.df_train, self.features, self.target, self.model)
-        self.model_bin, X_bins, self.binning_process, y = self.model, df_train[features].copy(), self.model.binning_process_, df_train[target].copy()
+        self.model_bin, X_bins, self.binning_process, y = self.model, self.X_train.copy(), self.model.binning_process_, self.y_train.copy()
 
         # start timer to measure training efficiency
         start = time.perf_counter()
@@ -59,7 +63,7 @@ class LlmGlobalExplainer(BaseExplainer):
 
         # model_name = 'Meta-Llama-3.1-8B-Instruct'
         model_name = 'gpt-4.1-mini'
-        rules_file = f'{output_dir}/rules_{model_name}.json'
+        rules_file = f'{self.output_dir}/rules_{model_name}.json'
         if os.path.exists(rules_file):
             with open(rules_file, 'r') as f:
                 rules = json.load(f)
@@ -73,16 +77,10 @@ class LlmGlobalExplainer(BaseExplainer):
             ans = json.loads(text)
             self.rules = [pd.Series(obj['changes']) for obj in ans]
             with open(rules_file, 'w') as f:
-                json.dump([r.to_dict() for r in self.rules], f)
+                json.dump([r.to_dict() for r in self.rules], f, indent=4)
         rules_df = pd.DataFrame(self.rules, columns=self.features)
         rules_df = self.model.binning_process_.transform(rules_df, metric='bins')
         self.rules = [clean_numpy2_strings(r[r!='Missing']) for _, r in rules_df.iterrows()]
-        # if self.dataset_name == "adult":
-        #     for q, series in enumerate(self.rules):
-        #         for k, value in series.items():
-        #             if k in self.cat_features:
-        #                 if not self.rules[q][k].startswith(" "):
-        #                     self.rules[q][k] = " " + value
 
         # end timer to measure training efficiency
         end = time.perf_counter()
@@ -101,4 +99,4 @@ class LlmGlobalExplainer(BaseExplainer):
         # prepare the output in the required format
         if cfs is None:
             return _empty_explanation_dict(test_item)
-        return prepare_output(self.model, cfs[self.features], test_item)
+        return prepare_output(self.model, cfs[self.features].iloc[:n_cf], test_item)

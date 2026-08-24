@@ -13,7 +13,7 @@ from .FACEGroup.kernel import Kernel
 from .FACEGroup.utils import GraphBuilder, get_subgraphs_by_group, get_normalized_group_identifier_value, \
     get_false_negatives_by_group
 from .adapters import FaceGroupAdapter
-from .cf_explainer import BaseExplainer, _empty_explanation_dict
+from explainers.base import BaseExplainer, _empty_explanation_dict
 from .utils_explainers import prepare_output, analyze_results, prepare_data_face
 
 NAME = "facegroup"
@@ -53,28 +53,31 @@ class FaceGroupExplainer(BaseExplainer):
         already does this).
     """
 
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+    def __init__(self, model: Scorecard, X_train, y_train, features, cat_features, num_features, act_features, target,
                  dataset_name, **kwargs):
-        self.model = model
-        self.df_train = df_train
-        self.features = features
-        self.cat_features = cat_features
-        self.num_features = num_features
-        self.act_features = act_features
-        self.target = target
+        # self.model = model
+        # self.df_train = df_train
+        # self.features = features
+        # self.cat_features = cat_features
+        # self.num_features = num_features
+        # self.act_features = act_features
+        # self.target = target
         self.dataset_name = dataset_name
+        super().__init__(
+            model, X_train, y_train, features, cat_features, num_features, act_features, target
+        )
 
+    def _init(self):
         # df_build: the frame the explainer is constructed on. Reset to a
         # RangeIndex so positional row i == graph node id i (the invariant the
         # group machinery and the inductive temp-node id both rely on).
-        self.df_train = self.df_train.reset_index(drop=True)
-        self.df_build = self.df_train
+        self.X_train = self.X_train.reset_index(drop=True)
+        self.df_build = self.X_train
 
         # prepare data (fits ohe / binning on df_build only)
         (self.ohe, self.model_ohe, X_oh, self.binning_process, y, self.face_features,
          self.immutables, self.immutables_idx) = prepare_data_face(
-            self.df_build, self.features, self.target, self.model,
-            self.num_features, self.cat_features, self.act_features)
+            self.X_train, self.y_train, self.model, self.num_features, self.cat_features, self.act_features)
 
         self.X_oh = X_oh
         # the exact matrix the graph distances live in (face-feature space)
@@ -83,7 +86,7 @@ class FaceGroupExplainer(BaseExplainer):
         start = time.perf_counter()
 
         # kernel fit on the face-feature space of the build set
-        kernel = Kernel(dataset_name, X_oh)
+        kernel = Kernel(self.dataset_name, X_oh)
         kernel.fitKernel(X_oh.values)
 
         # inductive FACEGroup: _data kept in the ORIGINAL face-only layout so the

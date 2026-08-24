@@ -208,18 +208,14 @@ def main():
         linear_estimator = deepcopy(classifier.estimator_)
         explainer_params.update({
             'binning_process': classifier.binning_process_,
-            'estimator': linear_estimator,
+            'model': linear_estimator,
             'X_train': X_train_orig,  # original, non-binned data
         })
-        explainer_params.pop('model')
-    elif args.explainer_name in ['ares', 'globe-ce', 'facegroup', 'glance', 'llm-global']:
-        del explainer_params['X_train']
-        del explainer_params['y_train']
-        explainer_params['df_train'] = pd.concat([X_train, y_train], axis=1)
+    elif args.explainer_name in ['ares', 'globe-ce', 'facegroup', 'glance', 'llm-local']:
+        explainer_params['dataset_name'] = args.dataset
+    elif args.explainer_name == 'llm-global':
         explainer_params['dataset_name'] = args.dataset
         explainer_params['output_dir'] = output_dir
-    elif args.explainer_name == 'llm-local':
-        explainer_params['dataset_name'] = args.dataset
 
     global_start_time = time.time()
 

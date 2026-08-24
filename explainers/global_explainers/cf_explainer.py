@@ -4,7 +4,7 @@ from explanation import ExplanationSet
 
 
 class BaseExplainer:
-    def _explain(self, test_item, n_cf=1) -> ExplanationSet:
+    def _explain(self, test_item, n_cf=1) -> dict:
         pass
 
     def explain(self, test_item, n_cf=1):

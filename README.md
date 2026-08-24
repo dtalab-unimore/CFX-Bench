@@ -20,6 +20,33 @@ pip install -r requirements.txt
 
 ---
 
+## Repository structure
+
+```
+CFX-Bench/
+├── data/                     # Dataset files and resources
+├── docs/
+│   ├── datasets.md
+│   ├── extending.md
+│   ├── metrics.md
+│   └── reproducibility.md
+├── evaluation/               # Quantitative and global evaluation metrics
+├── explainers/               # Local and global counterfactual explainers
+│   ├── global_explainers/    # Global counterfactual methods
+│   └── base.py               # Base interface for new explainers
+├── llm_clients/              # Interfaces for local and API-based LLMs
+├── llm_prompts/              # Prompts for LLM-based generation and evaluation
+├── scripts/                  # Auxiliary scripts, including LLM-based evaluation
+├── main.py                   # Main benchmark execution pipeline
+├── dataset.py                # Dataset abstraction and configuration
+├── classifiers.py            # Predictive model definitions
+├── explanation.py            # Counterfactual explanation representation
+├── test_case_generator.py    # Factual-instance selection strategies
+└── utils.py                  # Shared utilities
+```
+
+---
+
 ## Usage
 
 ### Main benchmark

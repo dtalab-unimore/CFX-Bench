@@ -1,13 +1,13 @@
-from .cf_explainer import BaseExplainer
+import time
+
+import pandas as pd
 from optbinning import Scorecard
+from sklearn.preprocessing import OneHotEncoder
+
+from explainers.base import BaseExplainer
+from .adapters import GlanceAdapter
 from .glance.glance.glance import GLANCE, cumulative
 from .utils_explainers import prepare_output
-import pandas as pd
-from .metrics_gcfes import (compute_metrics_global, compute_metrics_auc_global,
-                           LOWER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_RANGE_FOR_D, UPPER_LIMIT_FOR_K)
-import time
-from .adapters import GlanceAdapter
-from sklearn.preprocessing import OneHotEncoder
 
 NAME = "glance"
 CLUSTERING_METHOD = "KMeans"
@@ -25,22 +25,27 @@ CLUSTER_ACTION_CHOICE_ALGO = "max-eff"
 
 
 class GlanceExplainer(BaseExplainer):
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+    def __init__(self, model: Scorecard, X_train, y_train, features, cat_features, num_features, act_features, target,
                  dataset_name, **kwargs):
-        self.model = model
-        self.df_train = df_train
-        self.features = features
-        self.cat_features = cat_features
-        self.num_features = num_features
-        self.act_features = act_features
-        self.target = target
+        # self.model = model
+        # self.df_train = df_train
+        # self.features = features
+        # self.cat_features = cat_features
+        # self.num_features = num_features
+        # self.act_features = act_features
+        # self.target = target
         self.dataset_name = dataset_name
+        super().__init__(
+            model, X_train, y_train, features, cat_features, num_features, act_features, target
+        )
 
-        self.df_train = self.df_train.rename(columns={self.target: 'target'})
+    def _init(self):
         self.target = 'target'
+        self.y_train = pd.Series(self.y_train)
+        self.y_train.name = self.target
 
         # prepare data
-        self.model_bin, X_bins, self.binning_process, y = self.model, df_train[features].copy(), self.model.binning_process_, df_train[target].copy()
+        self.model_bin, X_bins, self.binning_process, y = self.model, self.X_train.copy(), self.model.binning_process_, self.y_train.copy()
         self.cat_features = self.features
         self.cont_features = []
 
@@ -49,13 +54,9 @@ class GlanceExplainer(BaseExplainer):
 
         # define GLANCE
         self.glance = GLANCE(self.model_bin, initial_clusters=10, final_clusters=3, num_local_counterfactuals=5)
-        self.glance.fit(X_bins, self.df_train[self.target], pd.concat([X_bins, self.df_train[self.target]], axis=1),
+        self.glance.fit(X_bins, self.y_train, pd.concat([X_bins, self.y_train], axis=1),
                         self.act_features, self.cont_features, self.cat_features, clustering_method=CLUSTERING_METHOD,
                         cf_generator=CF_GENERATOR, cluster_action_choice_algo=CLUSTER_ACTION_CHOICE_ALGO)
-        # self.glance.fit(X_bins, self.df_train[self.target], pd.concat([X_bins, self.df_train[self.target]], axis=1),
-        #                 self.act_features, self.cont_features, self.cat_features, clustering_method=CLUSTERING_METHOD,
-        #                 cf_generator=CF_GENERATOR, cluster_action_choice_algo=CLUSTER_ACTION_CHOICE_ALGO, nns__n_scalars=50)
-
         # generate counterfactuals for all factuals
         self.factuals_bin = X_bins[self.model_bin.predict(X_bins) == 0]
         eff, cost, clusters, self.clusters_res, self.chosen_actions, final_costs = self.glance.explain_group(self.factuals_bin)
@@ -67,7 +68,7 @@ class GlanceExplainer(BaseExplainer):
 
         self.training_efficiency = end - start
         OHE = OneHotEncoder(sparse_output=False, drop=None).fit(X_bins)
-        self.adapter = GlanceAdapter(self.clusters_res, self.chosen_actions, None, cat_features,
+        self.adapter = GlanceAdapter(self.clusters_res, self.chosen_actions, None, self.cat_features,
                                      self.num_features, OHE, self.binning_process)
 
     def _select_action(self, factual):

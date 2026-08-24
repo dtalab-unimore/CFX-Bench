@@ -51,6 +51,7 @@ def immutable_features(num_features, cat_features, act_features, face_features, 
     immutables_idx = [face_features.index(f) for f in immutables]
     return immutables, immutables_idx
 
+
 def compute_nbins(features, binning_process):
     """
     Compute number of bins.
@@ -163,16 +164,18 @@ def apply_rules_llm(record, rules, model):
         cfs = pd.DataFrame(cfs)
     elif len(cumulative_cfs_final) > 0:
         cfs = cumulative_cfs_final
+    else:
+        cfs = None
     return cfs
 
 
-def prepare_data_face(df_train, features, target, model, num_features, cat_features, act_features):
+def prepare_data_face(X, y, model, num_features, cat_features, act_features):
     """
     Function to prepare data used in FACE and FACEGroup.
     """
 
     # prepare data
-    ohe, model_ohe, X_oh, binning_process, y = prepare_data_ohe(df_train, features, target, model)
+    ohe, model_ohe, X_oh, binning_process, y = prepare_data_ohe(X, y, model)
     # features passed to FACE and FACEGroup are all numeric
     face_features = list(ohe.get_feature_names_out())
     # define immutable features
@@ -180,7 +183,7 @@ def prepare_data_face(df_train, features, target, model, num_features, cat_featu
     return ohe, model_ohe, X_oh, binning_process, y, face_features, immutables, immutables_idx
 
 
-def prepare_data_ares_globece(features, act_features, df_train, target, model, dataset_name):
+def prepare_data_ares_globece(X, y , features, act_features, model, dataset_name):
     """
     Function to prepare the data used in AReS and Globe-CE.
     """
@@ -199,19 +202,18 @@ def prepare_data_ares_globece(features, act_features, df_train, target, model, d
         cont_features = CONT_FEATURES_ADULT
     immutables = list(set(features) - set(act_features))
     # prepare data
-    ohe, model_ohe, X_oh, binning_process, y = prepare_data_ohe(df_train, features, target, model)
+    ohe, model_ohe, X_oh, binning_process, y = prepare_data_ohe(X, y, model)
     # define n_bins, dataset loader and model wrapper
     n_bins = compute_nbins(features, binning_process)
     return cat_features, cont_features, immutables, ohe, model_ohe, X_oh, binning_process, y, n_bins
 
 
-def prepare_data_ohe(df_train, features, target, model):
+def prepare_data_ohe(X, y, model):
     """
     prepare data using binning and one-hot encoding.
     """
     # ohe_sep = '_'
     ohe_sep = '§'
-    X, y = df_train[features], df_train[target]
     OHE = OneHotEncoder(sparse_output=False, drop=None, feature_name_combiner=lambda a, b: f"{a}{ohe_sep}{b}")  # feature_name_combiner?
     X_oh = OHE.fit_transform(X, y)
     X_oh = pd.DataFrame(X_oh, columns=OHE.get_feature_names_out(), index=X.index)
@@ -220,3 +222,48 @@ def prepare_data_ohe(df_train, features, target, model):
     bp = model.binning_process_  # for backward compatibility
 
     return OHE, model_oh, X_oh, bp, y
+
+
+class DatasetLoader:
+    def __init__(self, X_oh, y, target, original_features, fitted_categories, name='dataset', index=None):
+        """
+        Args:
+            X_oh: One-hot encoded data (numpy array, sparse matrix, or DataFrame).
+            y: Target series or array.
+            target: String name of the target variable.
+            original_features: Array of original column names (from encoder.feature_names_in_).
+            fitted_categories: Array of categories (from encoder.categories_).
+            name: Name of the dataset.
+            index: Optional pandas Index to align the final DataFrame.
+        """
+        self.name = name
+
+        # We now use the list passed directly from the encoder
+        self.columns = {name: list(original_features)}
+        self.categorical_features = {name: list(original_features)}
+        self.continuous_features = {name: []}
+
+        self.features_tree = {}
+        features = []
+
+        # Rebuild the tree safely using the encoder's exact memory of the data
+        for col, categories in zip(original_features, fitted_categories):
+            self.features_tree[col] = []
+            for category in categories:
+                feature_value = f"{col} = {category}"
+                features.append(feature_value)
+                self.features_tree[col].append(feature_value)
+
+        # Handle the one-hot data
+        if isinstance(X_oh, pd.DataFrame):
+            self.data_oh = X_oh.copy()
+            self.data_oh.columns = features
+        else:
+            dense_data = X_oh.toarray() if hasattr(X_oh, "toarray") else X_oh
+            self.data_oh = pd.DataFrame(dense_data, columns=features, index=index)
+
+        self.features = features.copy()
+        self.features.append(target)
+
+        self.target = target
+        self.y = y

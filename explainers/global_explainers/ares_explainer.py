@@ -1,37 +1,39 @@
 import time
-from copy import deepcopy
 
 import pandas as pd
 from optbinning import Scorecard
 
+from explainers.base import BaseExplainer, _empty_explanation_dict
 from explainers.global_explainers.GLOBE_CE_main.ares import AReS
 from explainers.global_explainers.adapters import AReSAdapter
-from explainers.global_explainers.ares_globece_loader import DatasetLoader
-from explainers.global_explainers.cf_explainer import BaseExplainer, _empty_explanation_dict
 from explainers.global_explainers.utils_explainers import prepare_data_ares_globece, prepare_output, rule_applies, \
-    apply_then
+    apply_then, DatasetLoader
 
 NAME = "ares"
 
 
 class AresExplainer(BaseExplainer):
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+    def __init__(self, model: Scorecard, X_train, y_train, features, cat_features, num_features, act_features, target,
                  dataset_name, monotonic_features=None, **kwargs):
-        self.model = model
-        self.df_train = df_train
-        self.features = features
-        self.cat_features = cat_features
-        self.num_features = num_features
-        self.act_features = act_features
-        self.target = target
+        # self.model = model
+        # self.X_train, self.y_train = X_train, y_train
+        # self.features = features
+        # self.cat_features = cat_features
+        # self.num_features = num_features
+        # self.act_features = act_features
+        # self.target = target
+        # self.monotonic_features = monotonic_features or {}  # ordinal_features implementation is bugged
         self.dataset_name = dataset_name
-        self.monotonic_features = monotonic_features or {}  # ordinal_features implementation is bugged
+        super().__init__(
+            model, X_train, y_train, features, cat_features, num_features, act_features, target, monotonic_features
+        )
 
+    def _init(self):
         # prepare data
         self.cat_features, self.cont_features, self.immutables, self.ohe, self.model_ohe, X_oh, self.binning_process, _, n_bins = (
-            prepare_data_ares_globece(self.features, self.act_features, self.df_train, self.target, self.model, self.dataset_name))
-        dataset = DatasetLoader(self.features, self.cat_features, self.cont_features, self.df_train,
-                                pd.concat([X_oh, self.df_train[self.target]], axis=1), ohe_sep='§')
+            prepare_data_ares_globece(self.X_train, self.y_train, self.features, self.act_features, self.model, self.dataset_name))
+        dataset = DatasetLoader(X_oh, self.y_train, self.target, self.ohe.feature_names_in_, self.ohe.categories_,
+                                name=self.dataset_name)
 
         # start timer to measure training efficiency
         start = time.perf_counter()

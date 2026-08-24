@@ -8,9 +8,8 @@ from optbinning import Scorecard
 from .GLOBE_CE_main.ares import AReS
 from .GLOBE_CE_main.globe_ce import GLOBE_CE
 from .adapters import GlobeCeAdapter
-from .ares_globece_loader import DatasetLoader
-from .cf_explainer import BaseExplainer, _empty_explanation_dict
-from .utils_explainers import prepare_data_ares_globece, prepare_output
+from explainers.base import BaseExplainer, _empty_explanation_dict
+from .utils_explainers import prepare_data_ares_globece, prepare_output, DatasetLoader
 
 NAME = "globe-ce"
 SCHEME = "random"
@@ -18,23 +17,26 @@ SCHEME = "random"
 
 
 class GlobeCeExplainer(BaseExplainer):
-    def __init__(self, model: Scorecard, df_train, features, cat_features, num_features, act_features, target,
+    def __init__(self, model: Scorecard, X_train, y_train, features, cat_features, num_features, act_features, target,
                  dataset_name, **kwargs):
-        self.model = model
-        self.df_train = df_train
-        self.features = features
-        self.cat_features = cat_features
-        self.num_features = num_features
-        self.act_features = act_features
-        self.target = target
+        # self.model = model
+        # self.df_train = df_train
+        # self.features = features
+        # self.cat_features = cat_features
+        # self.num_features = num_features
+        # self.act_features = act_features
+        # self.target = target
         self.dataset_name = dataset_name
+        super().__init__(
+            model, X_train, y_train, features, cat_features, num_features, act_features, target
+        )
 
+    def _init(self):
         # prepare data
         self.cat_features, _, self.immutables, self.ohe, self.model_ohe, X_oh, self.binning_process, _, n_bins = (
-            prepare_data_ares_globece(self.features, self.act_features, self.df_train, self.target, self.model, self.dataset_name))
-        dataset = DatasetLoader(self.features, self.cat_features, [], self.df_train,
-                                pd.concat([X_oh, self.df_train[self.target]], axis=1), ohe_sep='§')
-        # self.wrapper_model = ModelWrapper(self.model_ohe)
+            prepare_data_ares_globece(self.X_train, self.y_train, self.features, self.act_features, self.model, self.dataset_name))
+        dataset = DatasetLoader(X_oh, self.y_train, self.target, self.ohe.feature_names_in_, self.ohe.categories_,
+                                name=self.dataset_name)
 
         # initialise AReS to determine bin widths for costs
         ares = AReS(model=self.model_ohe, dataset=dataset, X=dataset.data_oh, n_bins=n_bins,
@@ -58,7 +60,7 @@ class GlobeCeExplainer(BaseExplainer):
         n_div = self.globe_ce.deltas_div.shape[0]
         min_costs = np.zeros((n_div, self.globe_ce.x_aff.shape[0]))
         self.min_costs_idxs = np.zeros((n_div, self.globe_ce.x_aff.shape[0]))
-        self.k_s = np.zeros((n_div, self.df_train.shape[0]))
+        self.k_s = np.zeros((n_div, self.X_train.shape[0]))
         for i in range(n_div):
             cor_s, cos_s, self.k_s[i] = self.globe_ce.scale(self.globe_ce.deltas_div[i], disable_tqdm=False, vector=True)
             min_costs[i], self.min_costs_idxs[i] = self.globe_ce.min_scalar_costs(cos_s, return_idxs=True, inf=False)

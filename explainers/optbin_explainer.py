@@ -7,9 +7,9 @@ from explainers.base import BaseExplainer, _empty_explanation_dict, prepare_outp
 
 
 class OptBinExplainer(BaseExplainer):
-    def __init__(self, binning_process, estimator, X_train, y_train, features, act_features, **kwargs):
+    def __init__(self, binning_process, model, X_train, y_train, features, act_features, **kwargs):
         model = Scorecard(
-            binning_process=binning_process, estimator=estimator,
+            binning_process=binning_process, estimator=model,
             scaling_method="min_max", scaling_method_params={"min": 300, "max": 850}
         )
         super().__init__(
@@ -31,7 +31,6 @@ class OptBinExplainer(BaseExplainer):
             outcome_type="binary",
             n_cf=n_cf,
             max_changes=len(self.act_features),
-            # hard_constraints=['diversity_features', 'diversity_values'],
             actionable_features=self.act_features
         )
         try:
@@ -47,12 +46,6 @@ class OptBinExplainer(BaseExplainer):
         mask = (cfs_changes_ != '-').reset_index(drop=True)
         cfs_ = cfs_.mask(mask, cfs_changes_)
         list_expl_full = cfs_
-        # list_expl_changes = cfs_changes_
 
-        # expl_dict = {
-        #     'record': record_bins, 'label': label, 'pred': pred,
-        #     'proba': proba, 'target': target, 'list_expl_full': list_expl_full,
-        #     'list_expl_changes': list_expl_changes, 'list_new_probs': list_new_probs
-        # }
         expl_dict = prepare_output(record_bins, label, pred, proba, target, list_expl_full, list_new_probs)
         return expl_dict
