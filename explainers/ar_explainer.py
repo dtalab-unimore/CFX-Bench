@@ -104,6 +104,7 @@ class ARExplainer(BaseExplainer):
         if pd.isna(cfs_ohe).all().all():
             return _empty_explanation_dict(test_item)
 
+        cfs_ohe = cfs_ohe.head(n_cf)
         list_new_probs = self.model_ohe.predict_proba(cfs_ohe)[:, 1]
         cfs_bins = self.OHE.inverse_transform(cfs_ohe)
         cfs_bins = pd.DataFrame(cfs_bins, columns=self.OHE.feature_names_in_)

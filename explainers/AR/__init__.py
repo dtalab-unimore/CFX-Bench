@@ -96,6 +96,7 @@ class ActionableRecourse:
         Generate counterfactual examples for given factual instances.
         """
         cfs = []
+        index_ = []
 
         # To keep matching indexes for iterrows and coeffs
         factuals = factuals.reset_index(drop=True)
@@ -140,22 +141,31 @@ class ActionableRecourse:
             # Get actions to flip predictions
             actions = fs_pop.actions
 
-            for action in actions:
-                candidate_cf = (factual_enc_norm + action).reshape((1, -1))
+            pred_f = np.argmax(self.predict_proba(factual_enc_norm.reshape((1, -1))))
+            # # first counterfactual that flips the prediction is enough
+            # for action in actions:
+            #     candidate_cf = (factual_enc_norm + action).reshape((1, -1))
+            #
+            #     # Check if candidate counterfactual really flips the prediction
+            #     pred_cf = np.argmax(self.predict_proba(candidate_cf))
+            #
+            #     if pred_cf != pred_f:
+            #         counterfactual = candidate_cf.squeeze()
+            #         break
+            #
+            # cfs.append(counterfactual)
 
-                # Check if candidate counterfactual really flips the prediction
-                pred_cf = np.argmax(self.predict_proba(candidate_cf))
-                pred_f = np.argmax(self.predict_proba(factual_enc_norm.reshape((1, -1))))
-
-                if pred_cf != pred_f:
-                    counterfactual = candidate_cf.squeeze()
-                    break
-
-            cfs.append(counterfactual)
+            # all valid counterfactuals
+            candidates = factual_enc_norm.reshape((1, -1)) + actions
+            preds_cf = np.argmax(self.predict_proba(candidates), axis=1)
+            flip_indices = np.where(preds_cf != pred_f)[0]
+            if len(flip_indices) > 0:
+                cfs.extend(candidates[flip_indices].tolist())
+                index_.extend([index] * len(flip_indices))
 
         # Convert output into pandas DataFrame
         cfs = np.array(cfs)
-        df_cfs = pd.DataFrame(cfs, columns=self.feature_names)
+        df_cfs = pd.DataFrame(cfs, columns=self.feature_names, index=index_)
 
         # Append predicted probabilities/labels if useful, here just leaving as purely CF features
         return df_cfs
